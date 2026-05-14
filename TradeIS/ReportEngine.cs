@@ -2,457 +2,375 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using TradeIS.Models;
+using TradeIS;
 
-namespace TradeIS
+public class ReportEngine
 {
-    public class ReportEngine
+    private readonly DataStorage _storage;
+
+    public ReportEngine(DataStorage storage)
     {
-        private readonly DataStorage _storage;
+        _storage = storage;
+    }
 
-        public ReportEngine(DataStorage storage)
+    // =========================
+    // 1. ПОСТАВЩИКИ ТОВАРА
+    // =========================
+    public DataTable GetSuppliersByProduct(
+    int? supplierId,
+    int? productId,
+    DateTime? from,
+    DateTime? to)
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Поставщик");
+        table.Columns.Add("Товар");
+        table.Columns.Add("Количество", typeof(int));
+        table.Columns.Add("Цена", typeof(double));
+        table.Columns.Add("Дата", typeof(DateTime));
+
+        var query = Program.Store.Supplies.AsEnumerable();
+
+        if (from.HasValue)
+            query = query.Where(x => x.Date >= from.Value);
+
+        if (to.HasValue)
+            query = query.Where(x => x.Date <= to.Value);
+
+        if (supplierId.HasValue)
+            query = query.Where(x => x.SupplierId == supplierId.Value);
+
+        if (productId.HasValue)
+            query = query.Where(x => x.ProductId == productId.Value);
+
+        foreach (var s in query)
         {
-            _storage = storage;
+            var supplier = Program.Store.Suppliers
+                .FirstOrDefault(x => x.Id == s.SupplierId)?.Name ?? "N/A";
+
+            var product = Program.Store.Products
+                .FirstOrDefault(x => x.Id == s.ProductId)?.Name ?? "N/A";
+
+            table.Rows.Add(supplier, product, s.Quantity, s.Price, s.Date);
         }
 
-        public DataTable ToDataTable<T>(IEnumerable<T> items)
-        {
-            DataTable table = new DataTable();
-            var props = typeof(T).GetProperties();
-
-            foreach (var prop in props)
-            {
-                Type propType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
-                table.Columns.Add(prop.Name, propType);
-            }
-
-            foreach (var item in items)
-            {
-                var values = new object[props.Length];
-                for (int i = 0; i < props.Length; i++)
-                {
-                    values[i] = props[i].GetValue(item) ?? DBNull.Value;
-                }
-                table.Rows.Add(values);
-            }
-            return table;
-        }
-
-        // 1 & 9. Поставщики (товар, объем, период) + Сведения о поставках конкретного поставщика
-        public DataTable GetSuppliersReport(
-            string productName,
-            int minQuantity,
-            DateTime from,
-            DateTime to,
-            string supplierName = "")
-        {
-            var query = _storage.Suppliers
-
-                .Join(_storage.SupplierOrders,
-                    s => s.Id,
-                    so => so.SupplierId,
-                    (s, so) => new { s, so })
-
-                .Join(_storage.Products,
-                    x => x.so.ProductId,
-                    p => p.Id,
-                    (x, p) => new { x.s, x.so, p })
-
-                .Where(x =>
-                    x.so.Date >= from &&
-                    x.so.Date <= to)
-
-                .Where(x =>
-                    string.IsNullOrWhiteSpace(productName) ||
-                    x.p.Name.Contains(productName))
-
-                .Where(x =>
-                    string.IsNullOrWhiteSpace(supplierName) ||
-                    x.s.Name == supplierName)
-
-                // ГРУППИРОВКА ПО ПОСТАВЩИКУ И ТОВАРУ
-                .GroupBy(x => new
-                {
-                    Поставщик = x.s.Name,
-                    Товар = x.p.Name
-                })
-
-                // ФИЛЬТР ПО СУММАРНОМУ ОБЪЕМУ
-                .Where(g =>
-                    minQuantity <= 0 ||
-                    g.Sum(x => x.so.Quantity) >= minQuantity)
-
-                .Select(g => new
-                {
-                    Поставщик = g.Key.Поставщик,
-                    Товар = g.Key.Товар,
-
-                    Всего_Поставлено =
-                        g.Sum(x => x.so.Quantity),
-
-                    Общая_Сумма =
-                        g.Sum(x => x.so.Quantity * x.so.Price),
-
-                    Количество_Поставок =
-                        g.Count(),
-
-                    Первая_Поставка =
-                        g.Min(x => x.so.Date),
-
-                    Последняя_Поставка =
-                        g.Max(x => x.so.Date)
-                })
-
-                .OrderByDescending(x => x.Всего_Поставлено)
-
-                .ToList();
-
-            return ToDataTable(query);
-        }
-        // 11. Рентабельность + 10. Отношение продаж к площади/прилавкам
-        public DataTable GetProfitabilityReport(TradePoint tp, DateTime from, DateTime to)
-        {
-            if (tp == null) return new DataTable();
-
-            double sales = _storage.Sales
-                .Where(s => s.TradePoint == tp.Name && s.Date >= from && s.Date <= to)
-                .Sum(s => (double)s.Price * s.Quantity);
-
-            double salaries = _storage.Sellers
-                .Where(s => s.TradePoint == tp.Name)
-                .Sum(s => s.Salary);
-
-            double costs = salaries + tp.Rent + tp.Utilities;
-
-            var res = new[] {
-                new {
-                    Точка = tp.Name,
-                    Тип = tp.GetPointType(),
-                    Выручка = sales,
-                    Расходы = costs,
-                    Прибыль = sales - costs,
-                    Рентабельность_Процент =
-                        costs > 0
-                            ? Math.Round(((sales - costs) / costs) * 100, 2)
-                            : 0,                    На_кв_м = tp.Size > 0 ? Math.Round(sales / tp.Size, 2) : 0,
-                    На_прилавок = tp.Counters > 0 ? Math.Round(sales / tp.Counters, 2) : 0
-                }
-            };
-            return ToDataTable(res);
-        }
-
-        // 3. Номенклатура и ОБЪЕМ в указанной точке
-        public DataTable GetProductsInPoint(string tpName)
-        {
-            var query = _storage.Sales
-
-                .Where(s =>
-                    s.TradePoint == tpName)
-
-                .GroupBy(s => s.Product)
-
-                .Select(g => new
-                {
-                    Товар = g.Key,
-
-                    Общий_Объем =
-                        g.Sum(x => x.Quantity),
-
-                    Средняя_Цена =
-                        Math.Round(g.Average(x => x.Price), 2),
-
-                    Выручка =
-                        g.Sum(x => x.Price * x.Quantity),
-
-                    Количество_Продаж =
-                        g.Count()
-                })
-
-                .OrderByDescending(x => x.Общий_Объем)
-
-                .ToList();
-
-            return ToDataTable(query);
-        }
-        // 2 & 13 & 14. Покупатели по товару/типу точки + Активные покупатели
-        public DataTable GetCustomersByProduct(
-            string productName,
-            DateTime from,
-            DateTime to,
-            string tpType = "",
-            int minVol = 0)
-        {
-            var query = _storage.Sales
-
-                .Join(_storage.TradePoints,
-                    s => s.TradePoint,
-                    tp => tp.Name,
-                    (s, tp) => new { s, tp })
-
-                .Where(x =>
-                    x.s.Date >= from &&
-                    x.s.Date <= to)
-
-                .Where(x =>
-                    string.IsNullOrWhiteSpace(productName) ||
-                    x.s.Product == productName)
-
-                .Where(x =>
-                    string.IsNullOrWhiteSpace(tpType) ||
-                    x.tp.GetPointType() == tpType)
-
-                // ГРУППИРОВКА ПО ПОКУПАТЕЛЮ
-                .GroupBy(x => x.s.Customer ?? "Розничный")
-
-                // ФИЛЬТР ПО ОБЩЕМУ ОБЪЕМУ
-                .Where(g =>
-                    minVol <= 0 ||
-                    g.Sum(x => x.s.Quantity) >= minVol)
-
-                .Select(g => new
-                {
-                    Покупатель = g.Key,
-
-                    Всего_Куплено =
-                        g.Sum(x => x.s.Quantity),
-
-                    Общая_Сумма =
-                        g.Sum(x => x.s.Quantity * x.s.Price),
-
-                    Количество_Покупок =
-                        g.Count(),
-
-                    Первый_Заказ =
-                        g.Min(x => x.s.Date),
-
-                    Последний_Заказ =
-                        g.Max(x => x.s.Date)
-                })
-
-                .OrderByDescending(x => x.Общая_Сумма)
-
-                .ToList();
-
-            return ToDataTable(query);
-        }
-        // 4. Цены и объемы по точкам/типам
-        // 4. Объем и цены товара по торговым точкам
-        public DataTable GetProductPricesByPoints(
-            string prodName,
-            string tpType = "",
-            string tradePoint = "")
-        {
-            var query = _storage.Sales
-
-                .Join(
-                    _storage.TradePoints,
-                    s => s.TradePoint,
-                    tp => tp.Name,
-                    (s, tp) => new { s, tp })
-
-                .Where(x =>
-                    string.IsNullOrWhiteSpace(prodName) ||
-                    x.s.Product == prodName)
-
-                .Where(x =>
-                    string.IsNullOrWhiteSpace(tpType) ||
-                    x.tp.GetPointType() == tpType)
-
-                .Where(x =>
-                    string.IsNullOrWhiteSpace(tradePoint) ||
-                    x.s.TradePoint == tradePoint)
-
-                .GroupBy(x => new
-                {
-                    x.s.TradePoint,
-                    Тип = x.tp.GetPointType(),
-                    x.s.Product
-                })
-
-                .Select(g => new
-                {
-                    Точка = g.Key.TradePoint,
-
-                    Тип = g.Key.Тип,
-
-                    Товар = g.Key.Product,
-
-                    Общий_Объем =
-                        g.Sum(x => x.s.Quantity),
-
-                    Мин_Цена =
-                        g.Min(x => x.s.Price),
-
-                    Макс_Цена =
-                        g.Max(x => x.s.Price),
-
-                    Средняя_Цена =
-                        Math.Round(g.Average(x => x.s.Price), 2),
-
-                    Выручка =
-                        g.Sum(x => x.s.Price * x.s.Quantity),
-
-                    Количество_Продаж =
-                        g.Count()
-                })
-
-                .OrderByDescending(x => x.Выручка)
-
-                .ToList();
-
-            return ToDataTable(query);
-        }
-
-        // 5 & 8. Продуктивность и Зарплата (все/тип)
-        public DataTable GetSellersProductivity(DateTime from, DateTime to, string tpType = "")
-        {
-            var res = _storage.Sales
-                .Join(_storage.TradePoints, s => s.TradePoint, tp => tp.Name, (s, tp) => new { s, tp })
-                .Join(_storage.Sellers, x => x.s.Seller, sel => sel.Name, (x, sel) => new { x.s, x.tp, sel })
-                .Where(x => x.s.Date >= from && x.s.Date <= to)
-                .Where(x => string.IsNullOrEmpty(tpType) || x.tp.GetPointType() == tpType)
-                .GroupBy(x => new { x.s.Seller, x.sel.Salary, x.s.TradePoint })
-                .Select(g => new {
-                    Продавец = g.Key.Seller,
-                    Точка = g.Key.TradePoint,
-                    Зарплата = g.Key.Salary,
-                    Выработка_Выручка = g.Sum(x => x.s.Price * x.s.Quantity),
-                    Сделок = g.Count()
-                });
-            return ToDataTable(res);
-        }
-
-        // 6. Выработка конкретного продавца конкретной точки
-        public DataTable GetSpecificSellerProductivity(
-            string sellerName,
-            string tradePoint,
-            DateTime from,
-            DateTime to)
-        {
-            var query = _storage.Sales
-
-                .Where(s =>
-                    s.Seller == sellerName &&
-                    s.TradePoint == tradePoint &&
-                    s.Date >= from &&
-                    s.Date <= to)
-
-                .GroupBy(s => new
-                {
-                    s.Seller,
-                    s.TradePoint
-                })
-
-                .Select(g => new
-                {
-                    Продавец = g.Key.Seller,
-
-                    Точка = g.Key.TradePoint,
-
-                    Продано_Товаров =
-                        g.Sum(x => x.Quantity),
-
-                    Общая_Выручка =
-                        g.Sum(x => x.Price * x.Quantity),
-
-                    Количество_Сделок =
-                        g.Count(),
-
-                    Средний_Чек =
-                        Math.Round(
-                            g.Average(x => x.Price * x.Quantity), 2),
-
-                    Первая_Продажа =
-                        g.Min(x => x.Date),
-
-                    Последняя_Продажа =
-                        g.Max(x => x.Date)
-                })
-
-                .ToList();
-
-            return ToDataTable(query);
-        }
-
-        // 15. Товарооборот по точкам/группам (типам)
-        public DataTable GetTradeTurnover(DateTime from, DateTime to, string tpType = "")
-        {
-            var res = _storage.Sales
-                .Join(_storage.TradePoints, s => s.TradePoint, tp => tp.Name, (s, tp) => new { s, tp })
-                .Where(x => x.s.Date >= from && x.s.Date <= to)
-                .Where(x => string.IsNullOrEmpty(tpType) || x.tp.GetPointType() == tpType)
-                .GroupBy(x => new { x.s.TradePoint, Type = x.tp.GetPointType() })
-                .Select(g => new {
-                    Точка = g.Key.TradePoint,
-                    Тип = g.Key.Type,
-                    Оборот = g.Sum(x => x.s.Price * x.s.Quantity)
-                });
-            return ToDataTable(res);
-        }
-
-        // Метод для Заявок
-        public DataTable GetRequestsView()
-        {
-            var query = from r in _storage.Requests
-                        join tp in _storage.TradePoints on r.TradePointId equals tp.Id
-                        join p in _storage.Products on r.ProductId equals p.Id
-                        select new { ID = r.Id, Торговая_Точка = tp.Name, Товар = p.Name, Количество = r.Quantity, Дата = r.Date.ToShortDateString() };
-            return ToDataTable(query);
-        }
-
-        // Метод для Заказов (Пункт 12 - инфо по номеру заказа)
-        public DataTable GetOrdersView()
-        {
-            var query = from o in _storage.SupplierOrders
-                        join s in _storage.Suppliers on o.SupplierId equals s.Id
-                        join p in _storage.Products on o.ProductId equals p.Id
-                        select new { ID = o.Id, Поставщик = s.Name, Товар = p.Name, Кол_во = o.Quantity, Цена = o.Price, Сумма = o.Quantity * o.Price, Дата = o.Date.ToShortDateString() };
-            return ToDataTable(query);
-        }
-
-        public DataTable GetProductSalesReport(string productName,
+        return table;
+    }
+
+    // =========================
+    // 2. ПОКУПАТЕЛИ
+    // =========================
+    public DataTable GetCustomersByProduct(
+        int productId,
         DateTime from,
         DateTime to,
-        string tpType = "",
-        string tradePoint = "")
+        int? tradePointId = null,
+        int minQty = 0)
+    {
+        var query = _storage.Sales
+            .Where(s => s.Date >= from)
+            .Where(s => s.Date <= to)
+            .Where(s => !tradePointId.HasValue || s.TradePointId == tradePointId.Value)
+            .Where(s => productId == 0 || s.ProductId == productId)
+            .GroupBy(s => s.CustomerId)
+            .Select(g => new
+            {
+                Покупатель = _storage.Customers.FirstOrDefault(c => c.Id == g.Key).Name,
+                Покупок = g.Sum(x => x.Quantity)
+            })
+            .Where(x => x.Покупок >= minQty);
+
+        return ToDataTable(query);
+    }
+
+    // =========================
+    // 3. ТОВАРЫ В ТОЧКЕ
+    // =========================
+    public DataTable GetProductsInPoint(int tradePointId)
+    {
+        var query = _storage.Stocks
+            .Where(s => s.TradePointId == tradePointId)
+            .Join(_storage.Products, s => s.ProductId, p => p.Id, (s, p) => new
+            {
+                Товар = p.Name,
+                Категория = p.Category,
+                Количество = s.Quantity
+            });
+
+        return ToDataTable(query);
+    }
+
+    // =========================
+    // 4. ЦЕНЫ ПО ТОЧКАМ
+    // =========================
+    public DataTable GetProductPricesByPoints(
+        int productId,
+        string tpType)
+    {
+        var query = _storage.Sales
+            .Join(_storage.TradePoints, s => s.TradePointId, tp => tp.Id, (s, tp) => new { s, tp })
+            .Join(_storage.Products, x => x.s.ProductId, p => p.Id, (x, p) => new { x.s, x.tp, p })
+            .Where(x => productId == 0 || x.p.Id == productId)
+            .Where(x => string.IsNullOrWhiteSpace(tpType) || x.tp.GetPointType() == tpType)
+            .Select(x => new
+            {
+                Точка = x.tp.Name,
+                Товар = x.p.Name,
+                Цена = x.s.Price
+            });
+
+        return ToDataTable(query);
+    }
+
+    // =========================
+    // 5. ВЫРАБОТКА ПРОДАВЦОВ
+    // =========================
+    public DataTable GetSellersProductivity(
+        DateTime from,
+        DateTime to,
+        int? tradePointId = null)
+    {
+        var query = _storage.Sales
+            .Where(s => s.Date >= from)
+            .Where(s => s.Date <= to)
+            .Where(s => !tradePointId.HasValue || s.TradePointId == tradePointId.Value)
+            .GroupBy(s => s.SellerId)
+            .Select(g => new
+            {
+                Продавец = _storage.Sellers.FirstOrDefault(x => x.Id == g.Key).Name,
+                Количество = g.Sum(x => x.Quantity),
+                Выручка = g.Sum(x => x.Quantity * x.Price)
+            });
+
+        return ToDataTable(query);
+    }
+
+    // =========================
+    // 6. КОНКРЕТНЫЙ ПРОДАВЕЦ
+    // =========================
+    public DataTable GetSpecificSellerProductivity(
+        int sellerId,
+        int tradePointId,
+        DateTime from,
+        DateTime to)
+    {
+        var query = _storage.Sales
+            .Where(s => s.SellerId == sellerId)
+            .Where(s => s.TradePointId == tradePointId)
+            .Where(s => s.Date >= from)
+            .Where(s => s.Date <= to)
+            .GroupBy(s => s.SellerId)
+            .Select(g => new
+            {
+                ПродавецId = g.Key,
+                Количество = g.Sum(x => x.Quantity),
+                Выручка = g.Sum(x => x.Quantity * x.Price)
+            });
+
+        return ToDataTable(query);
+    }
+
+    // =========================
+    // 7. ПРОДАЖИ ТОВАРА
+    // =========================
+    public DataTable GetProductSalesReport(
+        int productId,
+        DateTime from,
+        DateTime to,
+        int? tradePointId)
+    {
+        var query = _storage.Sales
+            .Where(s => s.Date >= from)
+            .Where(s => s.Date <= to)
+            .Where(s => productId == 0 || s.ProductId == productId)
+            .Where(s => !tradePointId.HasValue || s.TradePointId == tradePointId.Value)
+            .Join(_storage.Products, s => s.ProductId, p => p.Id, (s, p) => new { s, p })
+            .Join(_storage.TradePoints, x => x.s.TradePointId, tp => tp.Id, (x, tp) => new { x.s, x.p, tp })
+            .Select(x => new
+            {
+                Товар = x.p.Name,
+                Точка = x.tp.Name,
+                Количество = x.s.Quantity,
+                Выручка = x.s.Quantity * x.s.Price
+            });
+
+        return ToDataTable(query);
+    }
+
+    // =========================
+    // 8. ПОСТАВКИ ПОСТАВЩИКА
+    // =========================
+    public DataTable GetSuppliesBySupplier(
+    int? supplierId,
+    DateTime? from,
+    DateTime? to)
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Поставщик");
+        table.Columns.Add("Товар");
+        table.Columns.Add("Количество", typeof(int));
+        table.Columns.Add("Цена", typeof(double));
+        table.Columns.Add("Дата", typeof(DateTime));
+
+        var query = Program.Store.Supplies.AsEnumerable();
+
+        if (from.HasValue)
+            query = query.Where(x => x.Date >= from.Value);
+
+        if (to.HasValue)
+            query = query.Where(x => x.Date <= to.Value);
+
+        if (supplierId.HasValue)
+            query = query.Where(x => x.SupplierId == supplierId.Value);
+
+        foreach (var s in query)
         {
-            var query = _storage.Sales
-                .Join(_storage.TradePoints,
-                    s => s.TradePoint,
-                    tp => tp.Name,
-                    (s, tp) => new { s, tp })
+            var supplier = Program.Store.Suppliers
+                .FirstOrDefault(x => x.Id == s.SupplierId)?.Name ?? "N/A";
 
-                .Where(x => x.s.Date >= from && x.s.Date <= to)
+            var product = Program.Store.Products
+                .FirstOrDefault(x => x.Id == s.ProductId)?.Name ?? "N/A";
 
-                .Where(x =>
-                    string.IsNullOrEmpty(productName) ||
-                    x.s.Product == productName)
-
-                .Where(x =>
-                    string.IsNullOrEmpty(tpType) ||
-                    x.tp.GetPointType() == tpType)
-
-                .Where(x =>
-                    string.IsNullOrEmpty(tradePoint) ||
-                    x.s.TradePoint == tradePoint)
-
-                .GroupBy(x => new
-                {
-                    x.s.Product,
-                    x.s.TradePoint,
-                    Type = x.tp.GetPointType()
-                })
-
-                .Select(g => new
-                {
-                    Товар = g.Key.Product,
-                    Точка = g.Key.TradePoint,
-                    Тип = g.Key.Type,
-                    Продано = g.Sum(x => x.s.Quantity),
-                    Выручка = g.Sum(x => x.s.Price * x.s.Quantity)
-                });
-
-            return ToDataTable(query);
+            table.Rows.Add(supplier, product, s.Quantity, s.Price, s.Date);
         }
+
+        return table;
+    }
+
+    // =========================
+    // 9. РЕНТАБЕЛЬНОСТЬ
+    // =========================
+    public DataTable GetProfitabilityReport(
+        int tradePointId,
+        DateTime from,
+        DateTime to)
+    {
+        var sales = _storage.Sales
+            .Where(s => s.TradePointId == tradePointId)
+            .Where(s => s.Date >= from)
+            .Where(s => s.Date <= to);
+
+        var revenue = sales.Sum(s => s.Quantity * s.Price);
+
+        var salaries = _storage.Sellers
+            .Where(s => s.TradePointId == tradePointId)
+            .Sum(s => s.Salary);
+
+        var tp = _storage.TradePoints.FirstOrDefault(x => x.Id == tradePointId);
+
+        var result = new[]
+        {
+            new
+            {
+                Выручка = revenue,
+                Расходы = salaries + (tp?.Rent ?? 0) + (tp?.Utilities ?? 0),
+                Прибыль = revenue - (salaries + (tp?.Rent ?? 0) + (tp?.Utilities ?? 0))
+            }
+        };
+
+        return ToDataTable(result);
+    }
+
+    // =========================
+    // 10. ТОВАРООБОРОТ
+    // =========================
+    public DataTable GetTradeTurnover(
+        DateTime from,
+        DateTime to,
+        int? tradePointId = null)
+    {
+        var query = _storage.Sales
+            .Where(s => s.Date >= from)
+            .Where(s => s.Date <= to)
+            .Where(s => !tradePointId.HasValue || s.TradePointId == tradePointId.Value)
+            .Join(_storage.TradePoints, s => s.TradePointId, tp => tp.Id, (s, tp) => new { s, tp })
+            .GroupBy(x => new { x.tp.Id, x.tp.Name })
+            .Select(g => new
+            {
+                Точка = g.Key.Name,
+                Оборот = g.Sum(x => x.s.Quantity * x.s.Price)
+            });
+
+        return ToDataTable(query);
+    }
+
+    // =========================
+    // helper
+    // =========================
+    private DataTable ToDataTable<T>(IEnumerable<T> data)
+    {
+        var dt = new DataTable();
+        var props = typeof(T).GetProperties();
+
+        foreach (var p in props)
+            dt.Columns.Add(p.Name, Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType);
+
+        foreach (var item in data)
+            dt.Rows.Add(props.Select(p => p.GetValue(item)).ToArray());
+
+        return dt;
+    }
+
+    public DataTable GetSalesView()
+    {
+        var data = Program.Store.Sales.Select(s => new
+        {
+            s.Id,
+            Product = Lookup.ProductName(s.ProductId),
+            TradePoint = Lookup.TradePointName(s.TradePointId),
+            Seller = Lookup.SellerName(s.SellerId),
+            Customer = Lookup.CustomerName(s.CustomerId),
+            s.Quantity,
+            s.Price,
+            s.Date
+        });
+
+        return ToDataTable(data);
+    }
+
+    public DataTable GetSuppliesView()
+    {
+        var data = Program.Store.Supplies.Select(s => new
+        {
+            s.Id,
+            Supplier = Lookup.SupplierName(s.SupplierId),
+            Product = Lookup.ProductName(s.ProductId),
+            s.Quantity,
+            s.Price,
+            s.Date
+        });
+
+        return ToDataTable(data);
+    }
+
+    public DataTable GetRequestsView()
+    {
+        var data = Program.Store.Requests.Select(r => new
+        {
+            r.Id,
+            TradePoint = Lookup.TradePointName(r.TradePointId),
+            Product = Lookup.ProductName(r.ProductId),
+            r.Quantity,
+            r.Date
+        });
+
+        return ToDataTable(data);
+    }
+
+    public DataTable GetOrdersView()
+    {
+        var data = Program.Store.SupplierOrders.Select(o => new
+        {
+            o.Id,
+            Supplier = Lookup.SupplierName(o.SupplierId),
+            Product = Lookup.ProductName(o.ProductId),
+            o.Quantity,
+            o.Price,
+            o.Date
+        });
+
+        return ToDataTable(data);
     }
 }

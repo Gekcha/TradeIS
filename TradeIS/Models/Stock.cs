@@ -1,19 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.ComponentModel;
+using System;
 
-namespace TradeIS.Models
+public class Stock
 {
-    public class Stock
-    {
-        public int Id { get; set; }
+    [DisplayName("ID")]
+    public int Id { get; set; }
 
-        public int TradePointId { get; set; }
+    [DisplayName("Точка")]
+    public int TradePointId { get; set; }
 
-        public int ProductId { get; set; }
+    [DisplayName("Товар")]
+    public int ProductId { get; set; }
 
-        public int Quantity { get; set; }
+    [DisplayName("Количество")]
+    public int Quantity { get; set; }
 
-        public decimal Price { get; set; }
-    }
+    [DisplayName("Обновлено")]
+    public DateTime UpdatedAt { get; set; }
 }

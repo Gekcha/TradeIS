@@ -33,6 +33,7 @@ namespace TradeIS
 
             InitializeComboBoxes();
             InitializeGrids();
+            InitTradePointTypes();
 
             dgvReport.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvReport.AllowUserToAddRows = false;
@@ -64,7 +65,7 @@ namespace TradeIS
                 cbRequestProduct, cbRequestTradePoint, cbReport, cbSeller,
                 cbTradePoint, cbSupplier, cbProduct, cbCustomer,
                 cbSaleSeller, cbSaleTradePoint, cbSaleProduct, cbSaleCustomer,
-                cbSupplySupplier, cbReports // и остальные, если пропустил
+                cbSupplySupplier, cbReports, cbProductCategory // и остальные, если пропустил
             };
 
             foreach (var cb in allComboBoxes)
@@ -75,6 +76,28 @@ namespace TradeIS
 
             // Тот самый один, который остается свободным для ввода
             cbSupplyProduct.DropDownStyle = ComboBoxStyle.DropDown;
+
+            cbProductCategory.DropDownStyle = ComboBoxStyle.DropDown;
+            cbProductUnit.DropDownStyle = ComboBoxStyle.DropDown;
+
+            cbProductCategory.Items.AddRange(new string[]
+            {
+                "Напитки",
+                "Овощи",
+                "Фрукты",
+                "Молочные",
+                "Бытовая техника",
+                "Электроника"
+            });
+
+            cbProductUnit.Items.AddRange(new string[]
+            {
+                "шт",
+                "кг",
+                "л",
+                "м",
+                "упак"
+            });
 
             cbReport.Items.Clear();
             cbReport.Items.AddRange(new string[]
@@ -96,21 +119,39 @@ namespace TradeIS
                 "Рентабельность точки"
             });
 
+            cbReportFilter.Items.Add("По товару");
+            cbReportFilter.Items.Add("По виду товара");
+            cbReportFilter.SelectedIndex = 0;
+
             RefreshComboSources();
         }
         private void InitializeGrids()
         {
-            SetupGrid(dgvTradePoints, Program.Store.TradePoints);
-            SetupGrid(dgvProducts, Program.Store.Products);
-            SetupGrid(dgvSuppliers, Program.Store.Suppliers);
-            SetupGrid(dgvSupplies, Program.Store.Supplies);
-            SetupGrid(dgvSellers, Program.Store.Sellers);
-            SetupGrid(dgvCustomers, Program.Store.Customers);
-            SetupGrid(dgvSales, Program.Store.Sales);
+            RefreshTradePointsGrid();
+            RefreshProductsGrid();
+            RefreshSuppliersGrid();
+            RefreshSuppliesGrid();
+            RefreshSellersGrid();
+            RefreshCustomersGrid();
+            RefreshSalesGrid();
 
-            // Вместо прямой привязки используем "представления" с названиями
             RefreshRequestsGrid();
             RefreshOrdersGrid();
+        }
+        private void InitTradePointTypes()
+        {
+            cbType.Items.Clear();
+            // Эти строки должны СТРОГО совпадать с тем, что возвращает GetPointType() в классах
+            cbType.Items.AddRange(new string[]
+            {
+                "Универмаг",
+                "Магазин",
+                "Киоск",
+                "Лоток"
+            });
+
+            // Ставим режим DropDownList, как мы договаривались ранее
+            cbType.DropDownStyle = ComboBoxStyle.DropDownList;
         }
 
         #endregion
@@ -141,6 +182,26 @@ namespace TradeIS
             grid.DataSource = null;
             grid.DataSource = source;
         }
+        private void ConfigureGrid(DataGridView grid)
+        {
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            grid.AutoGenerateColumns = true;
+        }
+        private void BindGrid(DataGridView grid, object data)
+        {
+            ConfigureGrid(grid);
+            grid.DataSource = data;
+        }
+        private void SetRussianHeaders(DataGridView grid, Dictionary<string, string> headers)
+        {
+            foreach (DataGridViewColumn col in grid.Columns)
+            {
+                if (headers.TryGetValue(col.Name, out var header))
+                {
+                    col.HeaderText = header;
+                }
+            }
+        }
         private void dgvResults_DataError(object sender, DataGridViewDataErrorEventArgs e) { e.ThrowException = false; }
 
         #endregion
@@ -169,6 +230,8 @@ namespace TradeIS
             UpdateCombo(cbTradePoint, Program.Store.TradePoints);
             UpdateCombo(cbSeller, Program.Store.Sellers);
             UpdateCombo(cbCustomer, Program.Store.Customers);
+
+            RefreshCategoryCombo();
         }
         private void UpdateCombo(ComboBox cb, object data)
         {
@@ -191,7 +254,9 @@ namespace TradeIS
                 var newProduct = new Product
                 {
                     Id = Program.Store.Counters.ProductId++,
-                    Name = productName.Trim()
+                    Name = productName.Trim(),
+                    Category = "Без категории",
+                    Unit = "шт"
                 };
 
                 // Добавляем в общий список
@@ -213,71 +278,54 @@ namespace TradeIS
 
         private void btnAddTradePoint_Click(object sender, EventArgs e)
         {
-            string name = tbName.Text.Trim();
-            string selectedType = cbType.Text;
+            if (string.IsNullOrWhiteSpace(tbName.Text)) { MessageBox.Show("Введите название!"); return; }
+            if (cbType.SelectedIndex == -1) { MessageBox.Show("Выберите тип точки!"); return; }
 
-            // 1. БАЗОВАЯ ВАЛИДАЦИЯ
-            if (!IsValid(!string.IsNullOrWhiteSpace(name), "Введите название!")) return;
-            if (!IsValid(cbType.SelectedIndex != -1, "Выберите тип точки!")) return;
-
-            // 2. ВАЛИДАЦИЯ ЧИСЛОВЫХ ПОКАЗАТЕЛЕЙ (Площадь, Аренда, Налоги и т.д.)
-            // Предполагаю названия твоих NumericUpDown, подправь если отличаются:
-            if (!IsValid(numSize.Value > 0, "Площадь должна быть больше 0!")) return;
-            if (!IsValid(numRent.Value > 0, "Арендная плата должна быть больше 0!")) return;
-            if (!IsValid(numUtilities.Value > 0, "Коммунальные услуги должны быть больше 0!")) return;
-            if (!IsValid(numCounters.Value > 0, "Количество прилавков должно быть больше 0!")) return;
-
-            // 3. СПЕЦИФИЧЕСКАЯ ЛОГИКА ТИПОВ
-            // Если это Киоск или Лоток — прилавков всегда 1
-            if (selectedType == "Киоск" || selectedType == "Лоток")
+            try
             {
-                numCounters.Value = 1;
-            }
-            else
-            {
-                // Для остальных типов (например, Магазин) тоже проверим на > 0
-                if (!IsValid(numCounters.Value > 0, "Количество прилавков должно быть больше 0!")) return;
-            }
-
-            if (_editTradePointId == -1)
-            {
-                // --- ЛОГИКА ДОБАВЛЕНИЯ ---
-                if (!IsValid(!Program.Store.TradePoints.Any(p => p.Name == name), "Такая точка уже есть!")) return;
-
-                TradePoint newPoint = CreatePointByType(selectedType);
-                newPoint.Id = Program.Store.Counters.TradePointId++;
-                FillPointData(newPoint);
-
-                AddItem(Program.Store.TradePoints, newPoint, dgvTradePoints, true);
-            }
-            else
-            {
-                // --- ЛОГИКА РЕДАКТИРОВАНИЯ ---
-                var point = Program.Store.TradePoints.FirstOrDefault(p => p.Id == _editTradePointId);
-                if (point != null)
+                if (_editTradePointId == -1) // РЕЖИМ ДОБАВЛЕНИЯ
                 {
-                    string oldName = point.Name;
+                    // Создаем объект нужного класса через фабрику
+                    TradePoint newPoint = CreatePointByType(cbType.Text);
 
-                    if (point.GetPointType() == selectedType)
-                    {
-                        FillPointData(point);
-                    }
-                    else
-                    {
-                        int index = Program.Store.TradePoints.IndexOf(point);
-                        TradePoint newPoint = CreatePointByType(selectedType);
-                        newPoint.Id = point.Id;
-                        FillPointData(newPoint);
-                        Program.Store.TradePoints[index] = newPoint;
-                    }
+                    // Генерируем новый ID
+                    newPoint.Id = Program.Store.TradePoints.Count > 0
+                        ? Program.Store.TradePoints.Max(p => p.Id) + 1
+                        : 1;
 
-                    UpdateTradePointLinks(oldName, name);
+                    FillPointData(newPoint);
+                    Program.Store.TradePoints.Add(newPoint);
+                }
+                else // РЕЖИМ ИЗМЕНЕНИЯ
+                {
+                    var point = Program.Store.TradePoints.FirstOrDefault(p => p.Id == _editTradePointId);
+                    if (point != null)
+                    {
+                        // Если тип изменился, нужно заменить объект (т.к. это разные классы)
+                        if (point.GetPointType() != cbType.Text)
+                        {
+                            int index = Program.Store.TradePoints.IndexOf(point);
+                            TradePoint newPoint = CreatePointByType(cbType.Text);
+                            newPoint.Id = point.Id;
+                            FillPointData(newPoint);
+                            Program.Store.TradePoints[index] = newPoint;
+                        }
+                        else
+                        {
+                            FillPointData(point);
+                        }
+                    }
                 }
 
-                ResetTradePointEditor();
+                // Обновляем всё
                 RefreshGrid(dgvTradePoints, Program.Store.TradePoints);
-                RefreshComboSources();
+                RefreshComboSources(); // Чтобы в отчетах и других вкладках обновились списки
                 StorageManager.Save(Program.Store);
+                ResetTradePointEditor(); // Очищаем поля и сбрасываем кнопки
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
             }
         }
         private void btnEditTradePoint_Click(object sender, EventArgs e)
@@ -306,72 +354,119 @@ namespace TradeIS
         }
         private void btnDeleteTradePoint_Click(object sender, EventArgs e)
         {
+            // 1. ПРОВЕРКА: Если мы в режиме редактирования, кнопка работает как ОТМЕНА
+            if (_editTradePointId != -1)
+            {
+                ResetTradePointEditor(); // Просто очищаем поля и возвращаем кнопку "Добавить"
+                return;
+            }
+
+            // 2. ЛОГИКА УДАЛЕНИЯ (если не в режиме редактирования)
             if (dgvTradePoints.CurrentRow == null) return;
             var point = (TradePoint)dgvTradePoints.CurrentRow.DataBoundItem;
 
-            if (MessageBox.Show($"Удаление точки '{point.Name}' удалит всех её продавцов, продажи и заявки. Продолжить?",
-                "Внимание", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            var result = MessageBox.Show(
+                $"Удаление точки '{point.Name}' удалит всех её продавцов, продажи и заявки. Продолжить?",
+                "Внимание",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning
+            );
+
+            if (result == DialogResult.Yes)
             {
-                // Удаляем продавцов этой точки
-                var sellersToRemove = Program.Store.Sellers.Where(s => s.TradePoint == point.Name).ToList();
-                foreach (var s in sellersToRemove) Program.Store.Sellers.Remove(s);
+                // Удаляем связанных продавцов
+                var sellersToRemove = Program.Store.Sellers
+                    .Where(s => s.TradePointId == point.Id)
+                    .ToList();
 
-                // Удаляем продажи этой точки
-                var salesToRemove = Program.Store.Sales.Where(s => s.TradePoint == point.Name).ToList();
-                foreach (var s in salesToRemove) Program.Store.Sales.Remove(s);
+                foreach (var s in sellersToRemove)
+                    Program.Store.Sellers.Remove(s);
 
-                // Удаляем заявки (связь по ID)
+                // Удаляем продажи
+                var salesToRemove = Program.Store.Sales
+                    .Where(s => s.TradePointId == point.Id)
+                    .ToList();
+
+                foreach (var s in salesToRemove)
+                    Program.Store.Sales.Remove(s);
+
+                // Удаляем заявки
                 var requestsToRemove = Program.Store.Requests.Where(r => r.TradePointId == point.Id).ToList();
                 foreach (var r in requestsToRemove) Program.Store.Requests.Remove(r);
 
                 // Удаляем саму точку
                 Program.Store.TradePoints.Remove(point);
 
-                // Синхронизируем интерфейс
+                // Обновляем всё
                 RefreshGrid(dgvTradePoints, Program.Store.TradePoints);
                 RefreshGrid(dgvSellers, Program.Store.Sellers);
                 RefreshGrid(dgvSales, Program.Store.Sales);
                 RefreshRequestsGrid();
                 RefreshComboSources();
                 StorageManager.Save(Program.Store);
+
+                ResetTradePointEditor(); // На всякий случай чистим поля
             }
         }
         private void ResetTradePointEditor()
         {
             _editTradePointId = -1;
-
-            // Очистка полей
             tbName.Clear();
+            cbType.SelectedIndex = -1; // Сброс типа вызовет событие и разблокирует numCounters
+
             numSize.Value = 0;
             numRent.Value = 0;
             numUtilities.Value = 0;
-            numCounters.Value = 0;
-            cbType.SelectedIndex = -1;
 
-            // Возврат кнопок
+            numCounters.Enabled = true; // Возвращаем доступность по умолчанию
+            numCounters.Value = 1;
+
             btnAddTradePoint.Text = "Добавить";
-            btnDeleteTradePoint.Text = "Удалить";
-            btnDeleteTradePoint.UseVisualStyleBackColor = true;
         }
-        private void FillPointData(TradePoint p)
+        private void FillPointData(TradePoint point)
         {
-            p.Name = tbName.Text.Trim();
-            p.Size = (double)numSize.Value;
-            p.Rent = (double)numRent.Value;
-            p.Utilities = (double)numUtilities.Value;
-            p.Counters = (int)numCounters.Value;
+            point.Name = tbName.Text.Trim();
+            point.Size = (double)numSize.Value;
+            point.Rent = (double)numRent.Value;
+            point.Utilities = (double)numUtilities.Value;
+            point.Counters = (int)numCounters.Value; // Здесь будет 1 для киосков благодаря нашей "заморозке"
         }
-        private TradePoint CreatePointByType(string type) => type switch
+        private TradePoint CreatePointByType(string typeName)
         {
-            "Универмаг" => new DepartmentStore(),
-            "Магазин" => new Shop(),
-            "Киоск" => new Kiosk(),
-            _ => new Stall()
-        };
-        private void UpdateTradePointLinks(string oldName, string newName)
+            return typeName switch
+            {
+                "Универмаг" => new DepartmentStore(),
+                "Магазин" => new Shop(),
+                "Киоск" => new Kiosk(),
+                "Лоток" => new Stall(),
+                _ => throw new Exception("Выберите тип торговой точки!")
+            };
+        }
+        private void RefreshTradePointsGrid()
         {
-            foreach (var s in Program.Store.Sellers.Where(x => x.TradePoint == oldName)) s.TradePoint = newName;
-            foreach (var s in Program.Store.Sales.Where(x => x.TradePoint == oldName)) s.TradePoint = newName;
+            var data = Program.Store.TradePoints.Select(t => new
+            {
+                t.Id,
+                t.Name,
+                t.Size,
+                t.Rent,
+                t.Utilities,
+                t.Counters,
+                Type = t.GetPointType()
+            }).ToList();
+
+            BindGrid(dgvTradePoints, data);
+
+            SetRussianHeaders(dgvTradePoints, new Dictionary<string, string>
+            {
+                ["Id"] = "ID",
+                ["Name"] = "Название",
+                ["Size"] = "Площадь",
+                ["Rent"] = "Аренда",
+                ["Utilities"] = "Коммунальные услуги",
+                ["Counters"] = "Прилавки",
+                ["Type"] = "Тип"
+            });
         }
 
         #endregion
@@ -381,9 +476,17 @@ namespace TradeIS
         private void btnAddProduct_Click(object sender, EventArgs e)
         {
             string newName = tbProductName.Text.Trim();
+            string category = cbProductCategory.Text.Trim();
+            string unit = cbProductUnit.Text.Trim();
+
+            AddValueToComboIfMissing(cbProductCategory, category);
+            AddValueToComboIfMissing(cbProductUnit, unit);
 
             if (!IsValid(!string.IsNullOrWhiteSpace(newName), "Введите название!")) return;
-            if (_editProductId == -1)
+
+            if (!IsValid(!string.IsNullOrWhiteSpace(category), "Введите категорию!")) return;
+
+            if (!IsValid(!string.IsNullOrWhiteSpace(unit), "Введите единицу измерения!")) return; if (_editProductId == -1)
             {
                 // --- РЕЖИМ ДОБАВЛЕНИЯ ---
                 if (!IsValid(!Program.Store.Products.Any(p => p.Name == newName), "Такой товар уже есть!")) return;
@@ -391,7 +494,9 @@ namespace TradeIS
                 AddItem(Program.Store.Products, new Product
                 {
                     Id = Program.Store.Counters.ProductId++,
-                    Name = newName
+                    Name = newName,
+                    Category = category,
+                    Unit = unit
                 }, dgvProducts, true);
             }
             else
@@ -404,9 +509,8 @@ namespace TradeIS
                 {
                     string oldName = product.Name;
                     product.Name = newName; // Меняем имя на новое из TextBox
-
-                    // 2. Каскадное обновление (если имя товара используется в других таблицах)
-                    UpdateRelatedNames(oldName, newName);
+                    product.Category = category;
+                    product.Unit = unit;
                 }
 
                 // 3. СБРОС: возвращаем всё в режим добавления
@@ -433,6 +537,8 @@ namespace TradeIS
 
             // 1. Заполняем поля данными
             tbProductName.Text = product.Name;
+            cbProductCategory.Text = product.Category;
+            cbProductUnit.Text = product.Unit;
             _editProductId = product.Id;
 
             // 2. Трансформируем кнопку Добавить -> Сохранить
@@ -443,7 +549,6 @@ namespace TradeIS
             // Меняем цвет на желтый/серый, чтобы пользователь видел разницу (опционально)
             btnDeleteProduct.BackColor = Color.LightGray;
         }
-
         private void btnDeleteProduct_Click(object sender, EventArgs e)
         {
             if (_editProductId != -1)
@@ -474,7 +579,9 @@ namespace TradeIS
                 foreach (var o in ordersToRemove) Program.Store.SupplierOrders.Remove(o);
 
                 // 3. Удаляем продажи (если в Sale товар хранится по имени, удаляем по имени)
-                var salesToRemove = Program.Store.Sales.Where(s => s.Product == product.Name).ToList();
+                var salesToRemove = Program.Store.Sales
+                    .Where(s => s.ProductId == product.Id)
+                    .ToList();
                 foreach (var s in salesToRemove) Program.Store.Sales.Remove(s);
 
                 // 4. Удаляем сам товар
@@ -492,24 +599,67 @@ namespace TradeIS
         private void ResetProductEditor()
         {
             _editProductId = -1;
+
             tbProductName.Clear();
 
-            // Возвращаем названия кнопок
+            cbProductCategory.Text = "";
+            cbProductUnit.Text = "шт";
+
+            // или:
+            // cbProductCategory.SelectedIndex = -1;
+
             btnAddProduct.Text = "Добавить";
             btnDeleteProduct.Text = "Удалить";
 
-            // Возвращаем цвет (если меняли)
             btnDeleteProduct.UseVisualStyleBackColor = true;
         }
-        private void UpdateRelatedNames(string oldName, string newName)
-        {
-            // Обновляем в продажах (Sales)
-            foreach (var sale in Program.Store.Sales.Where(s => s.Product == oldName))
-                sale.Product = newName;
 
-            // Обновляем в поставках (Supplies)
-            foreach (var supply in Program.Store.Supplies.Where(s => s.Product == oldName))
-                supply.Product = newName;
+        private void AddValueToComboIfMissing(ComboBox cb, string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return;
+
+            bool exists = cb.Items
+                .Cast<object>()
+                .Any(x => x.ToString().Equals(value,
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (!exists)
+            {
+                cb.Items.Add(value);
+            }
+        }
+        private void RefreshCategoryCombo()
+        {
+            cbReportCategory.Items.Clear();
+
+            var categories = Program.Store.Products
+                .Select(p => p.Category)
+                .Distinct()
+                .OrderBy(x => x);
+
+            foreach (var c in categories)
+            {
+                cbReportCategory.Items.AddRange(
+                    categories.Where(c => c != null).ToArray()
+                );
+            }
+        }
+        private void RefreshProductsGrid()
+        {
+            var data = Program.Store.Products.Select(p => new
+            {
+                p.Id,
+                p.Name
+            }).ToList();
+
+            BindGrid(dgvProducts, data);
+
+            SetRussianHeaders(dgvProducts, new Dictionary<string, string>
+            {
+                ["Id"] = "ID",
+                ["Name"] = "Товар"
+            });
         }
 
         #endregion
@@ -541,12 +691,6 @@ namespace TradeIS
                 {
                     string oldName = supplier.Name;
                     supplier.Name = name;
-
-                    // Обновляем имя во всех связанных поставках (Supplies)
-                    foreach (var supply in Program.Store.Supplies.Where(s => s.Supplier == oldName))
-                    {
-                        supply.Supplier = name;
-                    }
                 }
 
                 ResetSupplierEditor();
@@ -591,7 +735,9 @@ namespace TradeIS
                 foreach (var o in ordersToRemove) Program.Store.SupplierOrders.Remove(o);
 
                 // Удаляем фактические поставки (связь по имени)
-                var suppliesToRemove = Program.Store.Supplies.Where(s => s.Supplier == supplier.Name).ToList();
+                var suppliesToRemove = Program.Store.Supplies
+                    .Where(s => s.SupplierId == supplier.Id)
+                    .ToList();
                 foreach (var s in suppliesToRemove) Program.Store.Supplies.Remove(s);
 
                 Program.Store.Suppliers.Remove(supplier);
@@ -612,6 +758,22 @@ namespace TradeIS
             btnDeleteSupplier.Text = "Удалить";
             btnDeleteSupplier.UseVisualStyleBackColor = true;
         }
+        private void RefreshSuppliersGrid()
+        {
+            var data = Program.Store.Suppliers.Select(s => new
+            {
+                s.Id,
+                s.Name
+            }).ToList();
+
+            BindGrid(dgvSuppliers, data);
+
+            SetRussianHeaders(dgvSuppliers, new Dictionary<string, string>
+            {
+                ["Id"] = "ID",
+                ["Name"] = "Поставщик"
+            });
+        }
 
         // Продавцы
         private void btnAddSeller_Click(object sender, EventArgs e)
@@ -624,11 +786,13 @@ namespace TradeIS
             if (_editSellerId == -1)
             {
                 // РЕЖИМ ДОБАВЛЕНИЯ
+                var tp = (TradePoint)cbSellerTradePoint.SelectedItem;
+
                 var newSeller = new Seller
                 {
                     Id = Program.Store.Counters.SellerId++,
                     Name = name,
-                    TradePoint = cbSellerTradePoint.Text,
+                    TradePointId = tp.Id,
                     Salary = (double)numSalary.Value
                 };
                 AddItem(Program.Store.Sellers, newSeller, dgvSellers, true);
@@ -642,15 +806,14 @@ namespace TradeIS
                     string oldName = seller.Name;
 
                     seller.Name = name;
-                    seller.TradePoint = cbSellerTradePoint.Text;
                     seller.Salary = (double)numSalary.Value;
 
-                    // Каскадное обновление: ищем продажи этого продавца и меняем имя
-                    foreach (var sale in Program.Store.Sales.Where(s => s.Seller == oldName))
+                    int tradePointId = (cbSellerTradePoint.SelectedItem as TradePoint).Id;
+                    seller.TradePointId = tradePointId;
+
+                    foreach (var sale in Program.Store.Sales.Where(s => s.SellerId == seller.Id))
                     {
-                        sale.Seller = name;
-                        // Если точка у продавца тоже сменилась, обновляем её и в продаже
-                        sale.TradePoint = seller.TradePoint;
+                        sale.TradePointId = tradePointId;
                     }
                 }
 
@@ -667,19 +830,17 @@ namespace TradeIS
             var seller = (Seller)dgvSellers.CurrentRow.DataBoundItem;
             _editSellerId = seller.Id;
 
-            // Заполняем поля
             tbSellerName.Text = seller.Name;
             numSalary.Value = (decimal)seller.Salary;
 
-            // Устанавливаем точку в ComboBox. 
-            // Важно: точка в продавце хранится как string (имя), поэтому ищем по тексту
-            cbSellerTradePoint.Text = seller.TradePoint;
+            cbSellerTradePoint.SelectedItem =
+                Program.Store.TradePoints.FirstOrDefault(tp => tp.Id == seller.TradePointId);
 
-            // Меняем кнопки
             btnAddSeller.Text = "Сохранить";
             btnDeleteSeller.Text = "Отмена";
             btnDeleteSeller.BackColor = Color.LightGray;
         }
+
         private void btnDeleteSeller_Click(object sender, EventArgs e)
         {
             if (_editSellerId != -1)
@@ -694,7 +855,9 @@ namespace TradeIS
             if (MessageBox.Show($"Удалить продавца '{seller.Name}'? Все его продажи также будут удалены.",
                 "Удаление", MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
-                var salesToRemove = Program.Store.Sales.Where(s => s.Seller == seller.Name).ToList();
+                var salesToRemove = Program.Store.Sales
+                    .Where(s => s.SellerId == seller.Id)
+                    .ToList();
                 foreach (var s in salesToRemove) Program.Store.Sales.Remove(s);
 
                 Program.Store.Sellers.Remove(seller);
@@ -716,7 +879,26 @@ namespace TradeIS
             btnDeleteSeller.Text = "Удалить";
             btnDeleteSeller.UseVisualStyleBackColor = true;
         }
+        private void RefreshSellersGrid()
+        {
+            var data = Program.Store.Sellers.Select(s => new
+            {
+                s.Id,
+                s.Name,
+                TradePoint = Lookup.TradePointName(s.TradePointId),
+                s.Salary
+            }).ToList();
 
+            BindGrid(dgvSellers, data);
+
+            SetRussianHeaders(dgvSellers, new Dictionary<string, string>
+            {
+                ["Id"] = "ID",
+                ["Name"] = "Продавец",
+                ["TradePoint"] = "Торговая точка",
+                ["Salary"] = "Зарплата"
+            });
+        }
         // Покупатели
         private void btnAddCustomer_Click(object sender, EventArgs e)
         {
@@ -740,14 +922,9 @@ namespace TradeIS
                 var customer = Program.Store.Customers.FirstOrDefault(c => c.Id == _editCustomerId);
                 if (customer != null)
                 {
-                    string oldName = customer.Name;
                     customer.Name = name;
 
-                    // Каскадное обновление в таблице продаж (Sales)
-                    foreach (var sale in Program.Store.Sales.Where(s => s.Customer == oldName))
-                    {
-                        sale.Customer = name;
-                    }
+                    // ничего в Sales НЕ обновляем, если используем ID
                 }
 
                 ResetCustomerEditor();
@@ -773,13 +950,36 @@ namespace TradeIS
         }
         private void btnDeleteCustomer_Click(object sender, EventArgs e)
         {
-            if (_editCustomerId != -1)
-            {
-                ResetCustomerEditor();
-                return;
-            }
+            if (dgvCustomers.CurrentRow == null) return;
 
-            DeleteItem(Program.Store.Customers, dgvCustomers, true);
+            var customer = dgvCustomers.CurrentRow.DataBoundItem as Customer;
+            if (customer == null) return;
+
+            var dr = MessageBox.Show(
+                $"Удалить покупателя {customer.Name}?",
+                "Подтверждение",
+                MessageBoxButtons.YesNo);
+
+            if (dr == DialogResult.Yes)
+            {
+                var salesToUpdate = Program.Store.Sales
+                    .Where(s => s.CustomerId == customer.Id)
+                    .ToList();
+
+                foreach (var sale in salesToUpdate)
+                {
+                    // либо удаляешь продажи:
+                    Program.Store.Sales.Remove(sale);
+
+                    // либо оставляешь и меняешь на "аноним" (но тогда нужен CustomerId = 0)
+                }
+
+                Program.Store.Customers.Remove(customer);
+
+                RefreshGrid(dgvCustomers, Program.Store.Customers);
+                RefreshGrid(dgvSales, Program.Store.Sales);
+                StorageManager.Save(Program.Store);
+            }
         }
         private void ResetCustomerEditor()
         {
@@ -790,7 +990,22 @@ namespace TradeIS
             btnDeleteCustomer.Text = "Удалить";
             btnDeleteCustomer.UseVisualStyleBackColor = true;
         }
+        private void RefreshCustomersGrid()
+        {
+            var data = Program.Store.Customers.Select(c => new
+            {
+                c.Id,
+                c.Name
+            }).ToList();
 
+            BindGrid(dgvCustomers, data);
+
+            SetRussianHeaders(dgvCustomers, new Dictionary<string, string>
+            {
+                ["Id"] = "ID",
+                ["Name"] = "Покупатель"
+            });
+        }
         #endregion
 
         #region Operations (Продажи и Поставки)
@@ -803,28 +1018,67 @@ namespace TradeIS
             if (!IsValid(numSaleQuantity.Value > 0, "Укажите количество!")) return;
             if (!IsValid(numSalePrice.Value > 0, "Укажите цену!")) return;
 
+            var product = cbSaleProduct.SelectedItem as Product;
+            var tp = cbSaleTradePoint.SelectedItem as TradePoint;
+            var seller = cbSaleSeller.SelectedItem as Seller;
+
+            if (product == null || tp == null || seller == null)
+                return;
+
             var sale = new Sale
             {
                 Id = Program.Store.Counters.SaleId++,
-                Product = cbSaleProduct.Text,
-                TradePoint = cbSaleTradePoint.Text,
-                Seller = cbSaleSeller.Text,
+                ProductId = product.Id,
+                TradePointId = tp.Id,
+                SellerId = seller.Id,
                 Quantity = (int)numSaleQuantity.Value,
                 Price = (double)numSalePrice.Value,
                 Date = dtpSaleDate.Value
             };
 
-            var tp = cbSaleTradePoint.SelectedItem as TradePoint;
-            if (tp != null && tp.AllowsCustomers())
+            if (tp.GetPointType() == "Киоск" || tp.GetPointType() == "Лоток") // если метода нет — убери, ниже скажу
             {
-                if (!IsValid(!string.IsNullOrWhiteSpace(cbSaleCustomer.Text), "Для этой точки обязательно указание покупателя!")) return;
-                sale.Customer = cbSaleCustomer.Text;
+                if (!IsValid(!string.IsNullOrWhiteSpace(cbSaleCustomer.Text),
+                    "Для этой точки обязательно указание покупателя!")) return;
+
+                var customer = cbSaleCustomer.SelectedItem as Customer;
+                if (customer != null)
+                    sale.CustomerId = customer.Id;
             }
 
             AddItem(Program.Store.Sales, sale, dgvSales);
+
+            DecreaseStock(tp.Id, product.Id, sale.Quantity);
         }
         private void btnDeleteSale_Click(object sender, EventArgs e) => DeleteItem(Program.Store.Sales, dgvSales);
+        private void RefreshSalesGrid()
+        {
+            var data = Program.Store.Sales.Select(s => new
+            {
+                s.Id,
+                Product = Lookup.ProductName(s.ProductId),
+                TradePoint = Lookup.TradePointName(s.TradePointId),
+                Seller = Lookup.SellerName(s.SellerId),
+                Customer = Lookup.CustomerName(s.CustomerId),
+                s.Quantity,
+                s.Price,
+                s.Date
+            }).ToList();
 
+            BindGrid(dgvSales, data);
+
+            SetRussianHeaders(dgvSales, new Dictionary<string, string>
+            {
+                ["Id"] = "ID",
+                ["Product"] = "Товар",
+                ["TradePoint"] = "Торговая точка",
+                ["Seller"] = "Продавец",
+                ["Customer"] = "Покупатель",
+                ["Quantity"] = "Количество",
+                ["Price"] = "Цена",
+                ["Date"] = "Дата"
+            });
+        }
         private void btnAddSupply_Click(object sender, EventArgs e)
         {
             if (!IsValid(cbSupplySupplier.SelectedItem != null, "Выберите поставщика!")) return;
@@ -834,17 +1088,53 @@ namespace TradeIS
 
             EnsureProductExists(cbSupplyProduct.Text);
 
-            AddItem(Program.Store.Supplies, new Supply
+            var supplier = cbSupplySupplier.SelectedItem as Supplier;
+            if (supplier == null) return;
+
+            var product = Program.Store.Products
+                .FirstOrDefault(p => p.Name == cbSupplyProduct.Text);
+
+            if (product == null) return;
+
+            var supply = new Supply
             {
                 Id = Program.Store.Counters.SupplyId++,
-                Supplier = cbSupplySupplier.Text,
-                Product = cbSupplyProduct.Text,
+                SupplierId = supplier.Id,
+                ProductId = product.Id,
                 Quantity = (int)numSupplyQuantity.Value,
                 Price = (double)numSupplyPrice.Value,
                 Date = dtpSupplyDate.Value
-            }, dgvSupplies);
+            };
+
+            AddItem(Program.Store.Supplies, supply, dgvSupplies);
+
+            IncreaseStock(product.Id, supply.Quantity);
         }
         private void btnDeleteSupply_Click(object sender, EventArgs e) => DeleteItem(Program.Store.Supplies, dgvSupplies);
+        private void RefreshSuppliesGrid()
+        {
+            var data = Program.Store.Supplies.Select(s => new
+            {
+                s.Id,
+                Supplier = Lookup.SupplierName(s.SupplierId),
+                Product = Lookup.ProductName(s.ProductId),
+                s.Quantity,
+                s.Price,
+                s.Date
+            }).ToList();
+
+            BindGrid(dgvSupplies, data);
+
+            SetRussianHeaders(dgvSupplies, new Dictionary<string, string>
+            {
+                ["Id"] = "ID",
+                ["Supplier"] = "Поставщик",
+                ["Product"] = "Товар",
+                ["Quantity"] = "Количество",
+                ["Price"] = "Цена",
+                ["Date"] = "Дата"
+            });
+        }
         #endregion
 
         #region Requests & Orders (Заявки и Заказы)
@@ -949,11 +1239,26 @@ namespace TradeIS
         }
         private void RefreshRequestsGrid()
         {
-            dgvRequests.DataSource = _reportEngine.GetRequestsView();
-            // Растягиваем колонки на всю ширину
-            dgvRequests.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-        }
+            var data = Program.Store.Requests.Select(r => new
+            {
+                r.Id,
+                TradePoint = Lookup.TradePointName(r.TradePointId),
+                Product = Lookup.ProductName(r.ProductId),
+                r.Quantity,
+                r.Date
+            }).ToList();
 
+            BindGrid(dgvRequests, data);
+
+            SetRussianHeaders(dgvRequests, new Dictionary<string, string>
+            {
+                ["Id"] = "ID",
+                ["TradePoint"] = "Торговая точка",
+                ["Product"] = "Товар",
+                ["Quantity"] = "Количество",
+                ["Date"] = "Дата"
+            });
+        }
         // Заказы
         private void btnAddOrder_Click(object sender, EventArgs e)
         {
@@ -1072,11 +1377,28 @@ namespace TradeIS
         }
         private void RefreshOrdersGrid()
         {
-            dgvOrders.DataSource = _reportEngine.GetOrdersView();
-            // Растягиваем колонки на всю ширину
-            dgvOrders.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-        }
+            var data = Program.Store.SupplierOrders.Select(o => new
+            {
+                o.Id,
+                Supplier = Lookup.SupplierName(o.SupplierId),
+                Product = Lookup.ProductName(o.ProductId),
+                o.Quantity,
+                o.Price,
+                o.Date
+            }).ToList();
 
+            BindGrid(dgvOrders, data);
+
+            SetRussianHeaders(dgvOrders, new Dictionary<string, string>
+            {
+                ["Id"] = "ID",
+                ["Supplier"] = "Поставщик",
+                ["Product"] = "Товар",
+                ["Quantity"] = "Количество",
+                ["Price"] = "Цена",
+                ["Date"] = "Дата"
+            });
+        }
         #endregion
 
         #region Reports & Filtering
@@ -1087,75 +1409,163 @@ namespace TradeIS
 
             string name = cbReport.SelectedItem.ToString();
 
-            // Собираем данные с формы (имена совпадают с твоим списком переменных)
             string productName = cbProduct.Text;
             string sellerName = cbSeller.Text;
             string tpName = cbTradePoint.Text;
-            string tpType = cbType.Text;
             string supplierName = cbSupplier.Text;
 
-            DateTime from = dtFrom.Value; // Твое название
-            DateTime to = dtTo.Value;     // Твое название
+            DateTime from = dtFrom.Value;
+            DateTime to = dtTo.Value;
             int quantity = (int)numQuantity.Value;
+
+            DataTable result = new DataTable();
 
             try
             {
-                DataTable result = new DataTable();
-
                 switch (name)
                 {
                     case "Поставщики товара":
-                        result = _reportEngine.GetSuppliersReport(productName, quantity, from, to);
-                        break;
+                        {
+                            var productId = Program.Store.Products
+                                .FirstOrDefault(p => p.Name == productName)?.Id;
+
+                            var supplierId = Program.Store.Suppliers
+                                .FirstOrDefault(s => s.Name == supplierName)?.Id;
+
+                            result = _reportEngine.GetSuppliersByProduct(
+                                supplierId,
+                                productId,
+                                from,
+                                to
+                            );
+
+                            break;
+                        }
+
                     case "Покупатели товара":
                     case "Покупатели товара по точкам":
-                        result = _reportEngine.GetCustomersByProduct(
-                            productName,
-                            from,
-                            to,
-                            tpType,
-                            quantity);
-                        break;
+                        {
+                            var productId = Program.Store.Products
+                                .FirstOrDefault(p => p.Name == productName)?.Id ?? 0;
+
+                            var tpId = Program.Store.TradePoints
+                                .FirstOrDefault(t => t.Name == tpName)?.Id;
+
+                            result = _reportEngine.GetCustomersByProduct(
+                                productId,
+                                from,
+                                to,
+                                null,
+                                quantity
+                            );
+                            break;
+                        }
+
                     case "Товары в торговой точке":
-                        result = _reportEngine.GetProductsInPoint(tpName);
-                        break;
+                        {
+                            var tpId = Program.Store.TradePoints
+                                .FirstOrDefault(t => t.Name == tpName)?.Id ?? 0;
+
+                            result = _reportEngine.GetProductsInPoint(tpId);
+                            break;
+                        }
+
                     case "Цены товара по точкам":
-                        result = _reportEngine.GetProductPricesByPoints(productName, tpType);
-                        break;
+                        {
+                            var productId = Program.Store.Products
+                                .FirstOrDefault(p => p.Name == productName)?.Id ?? 0;
+
+                            result = _reportEngine.GetProductPricesByPoints(
+                                productId,
+                                null
+                            );
+                            break;
+                        }
+
                     case "Выработка продавцов":
                     case "Зарплата продавцов":
-                        result = _reportEngine.GetSellersProductivity(from, to, tpType);
-                        break;
+                        {
+                            result = _reportEngine.GetSellersProductivity(
+                                from,
+                                to,
+                                null
+                            );
+                            break;
+                        }
+
                     case "Выработка конкретного продавца":
-                        result = _reportEngine.GetSpecificSellerProductivity(sellerName, tpName, from, to);
-                        break;
+                        {
+                            var sellerId = Program.Store.Sellers
+                                .FirstOrDefault(s => s.Name == sellerName)?.Id ?? 0;
+
+                            var tpId = Program.Store.TradePoints
+                                .FirstOrDefault(t => t.Name == tpName)?.Id ?? 0;
+
+                            result = _reportEngine.GetSpecificSellerProductivity(
+                                sellerId,
+                                tpId,
+                                from,
+                                to
+                            );
+                            break;
+                        }
+
                     case "Продажи товара":
-                        result = _reportEngine.GetProductSalesReport(
-                            productName,
-                            from,
-                            to,
-                            tpType,
-                            tpName);
-                        break;
+                        {
+                            var productId = Program.Store.Products
+                                .FirstOrDefault(p => p.Name == productName)?.Id ?? 0;
+
+                            var tpId = Program.Store.TradePoints
+                                .FirstOrDefault(t => t.Name == tpName)?.Id;
+
+                            result = _reportEngine.GetProductSalesReport(
+                                productId,
+                                from,
+                                to,
+                                tpId
+                            );
+                            break;
+                        }
+
                     case "Поставки поставщика":
-                        result = _reportEngine.GetSuppliersReport(productName, 0, from, to, supplierName);
-                        break;
+                        {
+                            var supplierId = Program.Store.Suppliers
+                                .FirstOrDefault(s => s.Name == supplierName)?.Id ?? 0;
+
+                            result = _reportEngine.GetSuppliesBySupplier(
+                                supplierId,
+                                from,
+                                to
+                            );
+                            break;
+                        }
+
                     case "Эффективность торговых точек":
                     case "Рентабельность точки":
-                        var tpObj = Program.Store.TradePoints.FirstOrDefault(x => x.Name == tpName);
-                        result = _reportEngine.GetProfitabilityReport(tpObj, from, to);
-                        break;
-                    case "Поставки по номеру заказа":
-                        var allOrders = _reportEngine.GetOrdersView();
-                        allOrders.DefaultView.RowFilter = $"ID = {quantity}";
-                        result = allOrders.DefaultView.ToTable();
-                        break;
-                    case "Активные покупатели":
-                        result = _reportEngine.GetCustomersByProduct("", from, to, tpType);
-                        break;
+                        {
+                            var tpId = Program.Store.TradePoints
+                                .FirstOrDefault(t => t.Name == tpName)?.Id ?? 0;
+
+                            result = _reportEngine.GetProfitabilityReport(
+                                tpId,
+                                from,
+                                to
+                            );
+                            break;
+                        }
+
                     case "Товарооборот":
-                        result = _reportEngine.GetTradeTurnover(from, to, tpType);
-                        break;
+                        {
+                            var tpId = Program.Store.TradePoints
+                                .FirstOrDefault(t => t.Name == tpName)?.Id;
+
+                            result = _reportEngine.GetTradeTurnover(
+                                from,
+                                to,
+                                tpId
+                            );
+                            break;
+                        }
                 }
 
                 dgvReport.DataSource = result;
@@ -1203,7 +1613,11 @@ namespace TradeIS
                 case "Товары в торговой точке":
 
                     ShowFilters(
-                        lblReportTradePoint, cbTradePoint);
+                        lblReportTradePoint,
+                        cbTradePoint,
+
+                        lblReportCategory,
+                        cbReportCategory);
 
                     break;
 
@@ -1334,28 +1748,137 @@ namespace TradeIS
         }
         private void cbType_SelectedIndexChanged(object sender, EventArgs e)
         {
-            // Проверяем, что выбрано: Киоск или Лоток
-            bool isFixedCounters = cbType.Text == "Киоск" || cbType.Text == "Лоток";
+            // 1. Проверяем, какой тип выбрал пользователь
+            string selectedType = cbType.Text;
+            bool isSmallPoint = (selectedType == "Киоск" || selectedType == "Лоток");
 
-            if (isFixedCounters)
+            if (isSmallPoint)
             {
-                numCounters.Value = 1;      // Принудительно ставим 1
-                numCounters.Enabled = false; // "Замораживаем" поле (оно станет серым)
+                // Если это киоск/лоток — жестко ставим 1 и выключаем поле
+                numCounters.Value = 1;
+                numCounters.Enabled = false;
             }
             else
             {
-                numCounters.Enabled = true;  // Размораживаем для магазинов и прочего
+                // Если передумали и выбрали Магазин — даем возможность редактировать прилавки
+                numCounters.Enabled = true;
+
+                // Опционально: если там была 1, можно оставить, 
+                // чтобы пользователь сам ввел нужное число для магазина
             }
+        }
+        private void cbReportFilter_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            bool byCategory = cbReportFilter.Text == "По виду товара";
+
+            numQuantity.Visible = !byCategory;
+            lblReportQuantity.Visible = !byCategory;
+
+            if (byCategory)
+                numQuantity.Value = 0;
         }
         private void ShowFilters(params Control[] ctrls) { HideAllFilters(); foreach (var c in ctrls) c.Visible = true; }
         private void HideAllFilters()
         {
             Control[] f = { lblReportProduct, cbProduct, lblReportCustomer, cbCustomer, lblReportSupplier, cbSupplier,
-                           lblReportSeller, cbSeller, lblReportTradePoint, cbTradePoint, lblReportDateFrom, dtFrom,
+                           lblReportSeller, cbSeller, lblReportTradePoint, cbTradePoint, lblReportCategory, cbReportCategory, lblReportDateFrom, dtFrom,
                            lblReportDateTo, dtTo, lblReportQuantity, numQuantity };
             foreach (var c in f) c.Visible = false;
         }
 
+        private void DecreaseStock(int tradePointId, int productId, int quantity)
+        {
+            var stock = Program.Store.Stocks
+                .FirstOrDefault(s =>
+                    s.TradePointId == tradePointId &&
+                    s.ProductId == productId);
+
+            if (stock == null)
+                return;
+
+            if (stock.Quantity < quantity)
+            {
+                MessageBox.Show("Недостаточно товара на остатке!");
+                return;
+            }
+
+            stock.Quantity -= quantity;
+
+            if (stock.Quantity < 0)
+                stock.Quantity = 0;
+
+            stock.UpdatedAt = DateTime.Now;
+
+            StorageManager.Save(Program.Store);
+        }
+
+        private void IncreaseStock(int productId, int quantity)
+        {
+            var stock = Program.Store.Stocks
+                .FirstOrDefault(s => s.ProductId == productId);
+
+            if (stock == null)
+            {
+                stock = new Stock
+                {
+                    ProductId = productId,
+                    Quantity = 0,
+                    UpdatedAt = DateTime.Now
+                };
+
+                Program.Store.Stocks.Add(stock);
+            }
+
+            stock.Quantity += quantity;
+            stock.UpdatedAt = DateTime.Now;
+
+            StorageManager.Save(Program.Store);
+        }
+
+        private void AddTransfer(Transfer t)
+        {
+            var fromStock = Program.Store.Stocks
+                .FirstOrDefault(s =>
+                    s.TradePointId == t.FromTradePointId &&
+                    s.ProductId == t.ProductId);
+
+            if (fromStock == null || fromStock.Quantity < t.Quantity)
+            {
+                MessageBox.Show("Недостаточно товара для перемещения");
+                return;
+            }
+
+            fromStock.Quantity -= t.Quantity;
+
+            var toStock = Program.Store.Stocks
+                .FirstOrDefault(s =>
+                    s.TradePointId == t.ToTradePointId &&
+                    s.ProductId == t.ProductId);
+
+            if (toStock == null)
+            {
+                toStock = new Stock
+                {
+                    TradePointId = t.ToTradePointId,
+                    ProductId = t.ProductId,
+                    Quantity = 0
+                };
+
+                Program.Store.Stocks.Add(toStock);
+            }
+
+            toStock.Quantity += t.Quantity;
+
+            Program.Store.Transfers.Add(t);
+
+            StorageManager.Save(Program.Store);
+        }
+
         #endregion
+
+        private void cbReportFilter_SelectedIndexChanged_1(object sender, EventArgs e)
+        {
+
+        }
     }
 }

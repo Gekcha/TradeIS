@@ -1,32 +1,29 @@
-﻿using System;
-using System.ComponentModel;
+﻿using System.ComponentModel;
+using System;
 
-namespace TradeIS.Models
+public class Sale
 {
-    public class Sale
-    {
-        [DisplayName("ID")]
-        public int Id { get; set; }
+    [DisplayName("ID")]
+    public int Id { get; set; }
 
-        [DisplayName("Товар")]
-        public string Product { get; set; }
+    [DisplayName("Товар")]
+    public int ProductId { get; set; }
 
-        [DisplayName("Торговая точка")]
-        public string TradePoint { get; set; }
+    [DisplayName("Точка")]
+    public int TradePointId { get; set; }
 
-        [DisplayName("Продавец")]
-        public string Seller { get; set; }
+    [DisplayName("Продавец")]
+    public int SellerId { get; set; }
 
-        [DisplayName("Покупатель")]
-        public string Customer { get; set; }
+    [DisplayName("Покупатель")]
+    public int? CustomerId { get; set; }
 
-        [DisplayName("Количество")]
-        public int Quantity { get; set; }
+    [DisplayName("Количество")]
+    public int Quantity { get; set; }
 
-        [DisplayName("Цена")]
-        public double Price { get; set; }
+    [DisplayName("Цена")]
+    public double Price { get; set; }
 
-        [DisplayName("Дата продажи")]
-        public DateTime Date { get; set; }
-    }
+    [DisplayName("Дата")]
+    public DateTime Date { get; set; }
 }

@@ -1,37 +1,26 @@
 ﻿using System.ComponentModel;
-using System.Text.Json.Serialization;
 
-namespace TradeIS.Models
+public abstract class TradePoint
 {
-    [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+    [DisplayName("ID")]
+    public int Id { get; set; }
 
-    [JsonDerivedType(typeof(DepartmentStore), "department")]
-    [JsonDerivedType(typeof(Shop), "shop")]
-    [JsonDerivedType(typeof(Kiosk), "kiosk")]
-    [JsonDerivedType(typeof(Stall), "stall")]
+    [DisplayName("Название")]
+    public string Name { get; set; }
 
-    public abstract class TradePoint
-    {
-        [DisplayName("ID")]
-        public int Id { get; set; }
+    [DisplayName("Площадь")]
+    public double Size { get; set; }
 
-        [DisplayName("Название")]
-        public string Name { get; set; }
+    [DisplayName("Аренда")]
+    public double Rent { get; set; }
 
-        [DisplayName("Размер")]
-        public double Size { get; set; }
+    [DisplayName("Коммунальные услуги")]
+    public double Utilities { get; set; }
 
-        [DisplayName("Аренда")]
-        public double Rent { get; set; }
+    [DisplayName("Прилавки")]
+    public int Counters { get; set; }
+    public abstract string Type { get; }
 
-        [DisplayName("Коммунальные услуги")]
-        public double Utilities { get; set; }
 
-        [DisplayName("Количество прилавков")]
-        public int Counters { get; set; }
-
-        public abstract string GetPointType();
-
-        public virtual bool AllowsCustomers() => false;
-    }
+    public abstract string GetPointType();
 }

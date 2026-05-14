@@ -1,13 +1,10 @@
 ﻿using System.ComponentModel;
 
-namespace TradeIS.Models
+public class Supplier
 {
-    public class Supplier
-    {
-        [DisplayName("ID")]
-        public int Id { get; set; }
+    [DisplayName("ID")]
+    public int Id { get; set; }
 
-        [DisplayName("Название поставщика")]
-        public string Name { get; set; }
-    }
+    [DisplayName("Название")]
+    public string Name { get; set; }
 }

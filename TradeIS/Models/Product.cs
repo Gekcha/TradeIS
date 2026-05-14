@@ -1,13 +1,16 @@
 ﻿using System.ComponentModel;
 
-namespace TradeIS.Models
+public class Product
 {
-    public class Product
-    {
-        [DisplayName("ID")]
-        public int Id { get; set; }
+    [DisplayName("ID")]
+    public int Id { get; set; }
 
-        [DisplayName("Название товара")]
-        public string Name { get; set; }
-    }
+    [DisplayName("Наименование")]
+    public string Name { get; set; }
+
+    [DisplayName("Категория")]
+    public string Category { get; set; }
+
+    [DisplayName("Единица измерения")]
+    public string Unit { get; set; }
 }

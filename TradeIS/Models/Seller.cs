@@ -1,19 +1,16 @@
 ﻿using System.ComponentModel;
 
-namespace TradeIS.Models
+public class Seller
 {
-    public class Seller
-    {
-        [DisplayName("ID")]
-        public int Id { get; set; }
+    [DisplayName("ID")]
+    public int Id { get; set; }
 
-        [DisplayName("Имя продавца")]
-        public string Name { get; set; }
+    [DisplayName("Имя")]
+    public string Name { get; set; }
 
-        [DisplayName("Торговая точка")]
-        public string TradePoint { get; set; }
+    [DisplayName("Торговая точка")]
+    public int TradePointId { get; set; }
 
-        [DisplayName("Зарплата")]
-        public double Salary { get; set; }
-    }
+    [DisplayName("Зарплата")]
+    public double Salary { get; set; }
 }

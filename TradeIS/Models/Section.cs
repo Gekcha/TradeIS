@@ -1,19 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.ComponentModel;
 
 namespace TradeIS.Models
 {
     public class Section
     {
+        [DisplayName("ID")]
         public int Id { get; set; }
 
-        public int TradePointId { get; set; }
+        [DisplayName("Зал")]
+        public int HallId { get; set; }
 
+        [DisplayName("Название")]
         public string Name { get; set; }
 
-        public int Floor { get; set; }
-
+        [DisplayName("Управляющий")]
         public string ManagerName { get; set; }
     }
 }

@@ -1,21 +1,23 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
+using System.ComponentModel;
 
-namespace TradeIS.Models
+public class Transfer
 {
-    public class Transfer
-    {
-        public int Id { get; set; }
+    [DisplayName("ID")]
+    public int Id { get; set; }
 
-        public int FromTradePointId { get; set; }
+    [DisplayName("Откуда")]
+    public int FromTradePointId { get; set; }
 
-        public int ToTradePointId { get; set; }
+    [DisplayName("Куда")]
+    public int ToTradePointId { get; set; }
 
-        public int ProductId { get; set; }
+    [DisplayName("Товар")]
+    public int ProductId { get; set; }
 
-        public int Quantity { get; set; }
+    [DisplayName("Количество")]
+    public int Quantity { get; set; }
 
-        public DateTime Date { get; set; }
-    }
+    [DisplayName("Дата")]
+    public DateTime Date { get; set; }
 }

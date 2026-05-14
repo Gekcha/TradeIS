@@ -1,17 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Text;
+﻿using System.ComponentModel;
 
 namespace TradeIS.Models
 {
     public class Hall
     {
-        [DisplayName("Название зала")]
+        [DisplayName("ID")]
+        public int Id { get; set; }
+
+        [DisplayName("Точка")]
+        public int TradePointId { get; set; }
+
+        [DisplayName("Название")]
         public string Name { get; set; }
-        [DisplayName("Торговая точка")]
-        public string TradePoint { get; set; }
-        [DisplayName("Количество продавцов")]
-        public int SellersCount { get; set; }
+
     }
 }

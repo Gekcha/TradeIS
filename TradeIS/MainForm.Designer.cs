@@ -47,6 +47,10 @@
             tbName = new TextBox();
             dgvTradePoints = new DataGridView();
             tabProducts = new TabPage();
+            cbProductUnit = new ComboBox();
+            lblProductUnit = new Label();
+            cbProductCategory = new ComboBox();
+            lblProductCategory = new Label();
             btnEditProduct = new Button();
             btnDeleteProduct = new Button();
             lblProductName = new Label();
@@ -143,6 +147,10 @@
             lblCount = new Label();
             btnShowReport = new Button();
             panelFilters = new Panel();
+            cbReportFilter = new ComboBox();
+            lblReportFilter = new Label();
+            lblReportCategory = new Label();
+            cbReportCategory = new ComboBox();
             lblReportTradePoint = new Label();
             lblReportQuantity = new Label();
             lblReportDateTo = new Label();
@@ -398,6 +406,10 @@
             // 
             // tabProducts
             // 
+            tabProducts.Controls.Add(cbProductUnit);
+            tabProducts.Controls.Add(lblProductUnit);
+            tabProducts.Controls.Add(cbProductCategory);
+            tabProducts.Controls.Add(lblProductCategory);
             tabProducts.Controls.Add(btnEditProduct);
             tabProducts.Controls.Add(btnDeleteProduct);
             tabProducts.Controls.Add(lblProductName);
@@ -411,6 +423,40 @@
             tabProducts.TabIndex = 3;
             tabProducts.Text = "Товары";
             tabProducts.UseVisualStyleBackColor = true;
+            // 
+            // cbProductUnit
+            // 
+            cbProductUnit.FormattingEnabled = true;
+            cbProductUnit.Location = new Point(20, 265);
+            cbProductUnit.Name = "cbProductUnit";
+            cbProductUnit.Size = new Size(250, 23);
+            cbProductUnit.TabIndex = 9;
+            // 
+            // lblProductUnit
+            // 
+            lblProductUnit.AutoSize = true;
+            lblProductUnit.Location = new Point(17, 246);
+            lblProductUnit.Name = "lblProductUnit";
+            lblProductUnit.Size = new Size(116, 15);
+            lblProductUnit.TabIndex = 8;
+            lblProductUnit.Text = "Единица измерения";
+            // 
+            // cbProductCategory
+            // 
+            cbProductCategory.FormattingEnabled = true;
+            cbProductCategory.Location = new Point(20, 105);
+            cbProductCategory.Name = "cbProductCategory";
+            cbProductCategory.Size = new Size(253, 23);
+            cbProductCategory.TabIndex = 7;
+            // 
+            // lblProductCategory
+            // 
+            lblProductCategory.AutoSize = true;
+            lblProductCategory.Location = new Point(20, 87);
+            lblProductCategory.Name = "lblProductCategory";
+            lblProductCategory.Size = new Size(103, 15);
+            lblProductCategory.TabIndex = 6;
+            lblProductCategory.Text = "Категория товара";
             // 
             // btnEditProduct
             // 
@@ -435,7 +481,7 @@
             // lblProductName
             // 
             lblProductName.AutoSize = true;
-            lblProductName.Location = new Point(17, 256);
+            lblProductName.Location = new Point(21, 167);
             lblProductName.Name = "lblProductName";
             lblProductName.Size = new Size(99, 15);
             lblProductName.TabIndex = 3;
@@ -461,7 +507,7 @@
             // 
             // tbProductName
             // 
-            tbProductName.Location = new Point(17, 274);
+            tbProductName.Location = new Point(20, 185);
             tbProductName.Name = "tbProductName";
             tbProductName.Size = new Size(250, 23);
             tbProductName.TabIndex = 0;
@@ -1332,6 +1378,10 @@
             // 
             // panelFilters
             // 
+            panelFilters.Controls.Add(cbReportFilter);
+            panelFilters.Controls.Add(lblReportFilter);
+            panelFilters.Controls.Add(lblReportCategory);
+            panelFilters.Controls.Add(cbReportCategory);
             panelFilters.Controls.Add(lblReportTradePoint);
             panelFilters.Controls.Add(lblReportQuantity);
             panelFilters.Controls.Add(lblReportDateTo);
@@ -1348,15 +1398,50 @@
             panelFilters.Controls.Add(cbTradePoint);
             panelFilters.Controls.Add(cbSupplier);
             panelFilters.Controls.Add(cbProduct);
-            panelFilters.Location = new Point(8, 102);
+            panelFilters.Location = new Point(8, 80);
             panelFilters.Name = "panelFilters";
-            panelFilters.Size = new Size(262, 468);
+            panelFilters.Size = new Size(262, 524);
             panelFilters.TabIndex = 2;
+            // 
+            // cbReportFilter
+            // 
+            cbReportFilter.FormattingEnabled = true;
+            cbReportFilter.Location = new Point(3, 30);
+            cbReportFilter.Name = "cbReportFilter";
+            cbReportFilter.Size = new Size(250, 23);
+            cbReportFilter.TabIndex = 20;
+            cbReportFilter.SelectedIndexChanged += cbReportFilter_SelectedIndexChanged_1;
+            // 
+            // lblReportFilter
+            // 
+            lblReportFilter.AutoSize = true;
+            lblReportFilter.Location = new Point(6, 12);
+            lblReportFilter.Name = "lblReportFilter";
+            lblReportFilter.Size = new Size(48, 15);
+            lblReportFilter.TabIndex = 19;
+            lblReportFilter.Text = "Фильтр";
+            // 
+            // lblReportCategory
+            // 
+            lblReportCategory.AutoSize = true;
+            lblReportCategory.Location = new Point(4, 65);
+            lblReportCategory.Name = "lblReportCategory";
+            lblReportCategory.Size = new Size(67, 15);
+            lblReportCategory.TabIndex = 18;
+            lblReportCategory.Text = "Вид товара";
+            // 
+            // cbReportCategory
+            // 
+            cbReportCategory.FormattingEnabled = true;
+            cbReportCategory.Location = new Point(3, 83);
+            cbReportCategory.Name = "cbReportCategory";
+            cbReportCategory.Size = new Size(250, 23);
+            cbReportCategory.TabIndex = 17;
             // 
             // lblReportTradePoint
             // 
             lblReportTradePoint.AutoSize = true;
-            lblReportTradePoint.Location = new Point(3, 112);
+            lblReportTradePoint.Location = new Point(3, 207);
             lblReportTradePoint.Name = "lblReportTradePoint";
             lblReportTradePoint.Size = new Size(91, 15);
             lblReportTradePoint.TabIndex = 16;
@@ -1365,7 +1450,7 @@
             // lblReportQuantity
             // 
             lblReportQuantity.AutoSize = true;
-            lblReportQuantity.Location = new Point(0, 381);
+            lblReportQuantity.Location = new Point(0, 477);
             lblReportQuantity.Name = "lblReportQuantity";
             lblReportQuantity.Size = new Size(72, 15);
             lblReportQuantity.TabIndex = 15;
@@ -1374,7 +1459,7 @@
             // lblReportDateTo
             // 
             lblReportDateTo.AutoSize = true;
-            lblReportDateTo.Location = new Point(3, 327);
+            lblReportDateTo.Location = new Point(3, 423);
             lblReportDateTo.Name = "lblReportDateTo";
             lblReportDateTo.Size = new Size(48, 15);
             lblReportDateTo.TabIndex = 14;
@@ -1383,7 +1468,7 @@
             // lblReportDateFrom
             // 
             lblReportDateFrom.AutoSize = true;
-            lblReportDateFrom.Location = new Point(3, 272);
+            lblReportDateFrom.Location = new Point(3, 368);
             lblReportDateFrom.Name = "lblReportDateFrom";
             lblReportDateFrom.Size = new Size(47, 15);
             lblReportDateFrom.TabIndex = 13;
@@ -1392,7 +1477,7 @@
             // lblReportCustomer
             // 
             lblReportCustomer.AutoSize = true;
-            lblReportCustomer.Location = new Point(3, 210);
+            lblReportCustomer.Location = new Point(3, 305);
             lblReportCustomer.Name = "lblReportCustomer";
             lblReportCustomer.Size = new Size(72, 15);
             lblReportCustomer.TabIndex = 12;
@@ -1401,7 +1486,7 @@
             // lblReportSeller
             // 
             lblReportSeller.AutoSize = true;
-            lblReportSeller.Location = new Point(3, 161);
+            lblReportSeller.Location = new Point(3, 256);
             lblReportSeller.Name = "lblReportSeller";
             lblReportSeller.Size = new Size(61, 15);
             lblReportSeller.TabIndex = 11;
@@ -1410,7 +1495,7 @@
             // lblReportSupplier
             // 
             lblReportSupplier.AutoSize = true;
-            lblReportSupplier.Location = new Point(3, 59);
+            lblReportSupplier.Location = new Point(3, 154);
             lblReportSupplier.Name = "lblReportSupplier";
             lblReportSupplier.Size = new Size(70, 15);
             lblReportSupplier.TabIndex = 9;
@@ -1419,7 +1504,7 @@
             // lblReportProduct
             // 
             lblReportProduct.AutoSize = true;
-            lblReportProduct.Location = new Point(3, 14);
+            lblReportProduct.Location = new Point(3, 109);
             lblReportProduct.Name = "lblReportProduct";
             lblReportProduct.Size = new Size(39, 15);
             lblReportProduct.TabIndex = 8;
@@ -1427,21 +1512,21 @@
             // 
             // numQuantity
             // 
-            numQuantity.Location = new Point(3, 399);
+            numQuantity.Location = new Point(3, 495);
             numQuantity.Name = "numQuantity";
             numQuantity.Size = new Size(250, 23);
             numQuantity.TabIndex = 7;
             // 
             // dtTo
             // 
-            dtTo.Location = new Point(3, 345);
+            dtTo.Location = new Point(3, 441);
             dtTo.Name = "dtTo";
             dtTo.Size = new Size(250, 23);
             dtTo.TabIndex = 6;
             // 
             // dtFrom
             // 
-            dtFrom.Location = new Point(3, 290);
+            dtFrom.Location = new Point(3, 386);
             dtFrom.Name = "dtFrom";
             dtFrom.Size = new Size(250, 23);
             dtFrom.TabIndex = 5;
@@ -1450,7 +1535,7 @@
             // cbCustomer
             // 
             cbCustomer.FormattingEnabled = true;
-            cbCustomer.Location = new Point(3, 228);
+            cbCustomer.Location = new Point(3, 323);
             cbCustomer.Name = "cbCustomer";
             cbCustomer.Size = new Size(250, 23);
             cbCustomer.TabIndex = 4;
@@ -1458,7 +1543,7 @@
             // cbSeller
             // 
             cbSeller.FormattingEnabled = true;
-            cbSeller.Location = new Point(3, 179);
+            cbSeller.Location = new Point(3, 274);
             cbSeller.Name = "cbSeller";
             cbSeller.Size = new Size(250, 23);
             cbSeller.TabIndex = 3;
@@ -1466,7 +1551,7 @@
             // cbTradePoint
             // 
             cbTradePoint.FormattingEnabled = true;
-            cbTradePoint.Location = new Point(3, 130);
+            cbTradePoint.Location = new Point(3, 225);
             cbTradePoint.Name = "cbTradePoint";
             cbTradePoint.Size = new Size(250, 23);
             cbTradePoint.TabIndex = 2;
@@ -1474,7 +1559,7 @@
             // cbSupplier
             // 
             cbSupplier.FormattingEnabled = true;
-            cbSupplier.Location = new Point(3, 77);
+            cbSupplier.Location = new Point(3, 172);
             cbSupplier.Name = "cbSupplier";
             cbSupplier.Size = new Size(250, 23);
             cbSupplier.TabIndex = 1;
@@ -1482,7 +1567,7 @@
             // cbProduct
             // 
             cbProduct.FormattingEnabled = true;
-            cbProduct.Location = new Point(3, 32);
+            cbProduct.Location = new Point(3, 127);
             cbProduct.Name = "cbProduct";
             cbProduct.Size = new Size(250, 23);
             cbProduct.TabIndex = 0;
@@ -1824,5 +1909,13 @@
         private Button btnEditCustomer;
         private Button btnEditRequest;
         private Button btnEditOrder;
+        private Label lblProductCategory;
+        private Label lblProductUnit;
+        private ComboBox cbProductCategory;
+        private ComboBox cbProductUnit;
+        private Label lblReportCategory;
+        private ComboBox cbReportCategory;
+        private ComboBox cbReportFilter;
+        private Label lblReportFilter;
     }
 }

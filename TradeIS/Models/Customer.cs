@@ -1,13 +1,10 @@
 ﻿using System.ComponentModel;
 
-namespace TradeIS.Models
+public class Customer
 {
-    public class Customer
-    {
-        [DisplayName("ID")]
-        public int Id { get; set; }
+    [DisplayName("ID")]
+    public int Id { get; set; }
 
-        [DisplayName("Имя покупателя")]
-        public string Name { get; set; }
-    }
+    [DisplayName("Имя")]
+    public string Name { get; set; }
 }

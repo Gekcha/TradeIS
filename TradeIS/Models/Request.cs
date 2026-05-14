@@ -1,23 +1,20 @@
-﻿using System;
-using System.ComponentModel;
+﻿using System.ComponentModel;
+using System;
 
-namespace TradeIS.Models
+public class Request
 {
-    public class Request
-    {
-        [DisplayName("ID")]
-        public int Id { get; set; }
+    [DisplayName("ID")]
+    public int Id { get; set; }
 
-        [DisplayName("Торговая точка")]
-        public int TradePointId { get; set; }
+    [DisplayName("Точка")]
+    public int TradePointId { get; set; }
 
-        [DisplayName("Товар")]
-        public int ProductId { get; set; }
+    [DisplayName("Товар")]
+    public int ProductId { get; set; }
 
-        [DisplayName("Количество")]
-        public int Quantity { get; set; }
+    [DisplayName("Количество")]
+    public int Quantity { get; set; }
 
-        [DisplayName("Дата заявки")]
-        public DateTime Date { get; set; }
-    }
+    [DisplayName("Дата")]
+    public DateTime Date { get; set; }
 }
