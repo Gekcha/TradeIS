@@ -494,7 +494,7 @@ public class ReportEngine
 
             table.Rows.Add(
                 tp.Name,
-                tp.GetType().Name,
+                tp.GetPointType(),
                 g.Count(),
                 g.Sum(x => x.Quantity)
             );
@@ -551,42 +551,152 @@ public class ReportEngine
         );
     }
 
-    // =========================
-    // 8. ПОСТАВКИ ПОСТАВЩИКА
-    // =========================
-    public DataTable GetSuppliesBySupplier(
-    int? supplierId,
-    DateTime? from,
-    DateTime? to)
+    public DataTable GetSellersSalaryAll(
+    DateTime from,
+    DateTime to)
+    {
+        return BuildSellersSalaryReport(
+            null,
+            from,
+            to
+        );
+    }
+
+    public DataTable GetSellersSalaryByType(
+        string type,
+        DateTime from,
+        DateTime to)
+    {
+        return BuildSellersSalaryReport(
+            s =>
+            {
+                var tp = Program.Store.TradePoints
+                    .FirstOrDefault(t => t.Id == s.TradePointId);
+
+                return tp != null &&
+                       tp.GetType().Name == type;
+            },
+            from,
+            to
+        );
+    }
+
+    public DataTable GetSellersSalaryByPoint(
+        int tradePointId,
+        DateTime from,
+        DateTime to)
+    {
+        return BuildSellersSalaryReport(
+            s => s.TradePointId == tradePointId,
+            from,
+            to
+        );
+    }
+
+    private DataTable BuildSellersSalaryReport(
+    Func<Seller, bool> filter,
+    DateTime from,
+    DateTime to)
     {
         var table = new DataTable();
 
+        table.Columns.Add("Продавец");
+        table.Columns.Add("Торговая точка");
+        table.Columns.Add("Тип точки");
+        table.Columns.Add("Выручка");
+        table.Columns.Add("Зарплата");
+
+        var sellers = Program.Store.Sellers.AsEnumerable();
+
+        if (filter != null)
+            sellers = sellers.Where(filter);
+
+        foreach (var seller in sellers)
+        {
+            var tp = Program.Store.TradePoints
+                .FirstOrDefault(t => t.Id == seller.TradePointId);
+
+            if (tp == null)
+                continue;
+
+            var sales = Program.Store.Sales
+                .Where(s =>
+                    s.SellerId == seller.Id &&
+                    s.Date >= from &&
+                    s.Date <= to)
+                .ToList();
+
+            double revenue = sales.Sum(s =>
+                s.Price * s.Quantity);
+
+            double salary = revenue * 0.05;
+
+            table.Rows.Add(
+                seller.Name,
+                tp.Name,
+                tp.GetPointType(),
+                revenue,
+                salary
+            );
+        }
+
+        return table;
+    }
+
+    // =========================
+    // 8. ПОСТАВКИ ПОСТАВЩИКА
+    // =========================
+    public DataTable GetSupplierProductSupplies(
+     int supplierId,
+     int productId,
+     DateTime? from,
+     DateTime? to)
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Поставка ID");
+        table.Columns.Add("Дата");
         table.Columns.Add("Поставщик");
         table.Columns.Add("Товар");
-        table.Columns.Add("Количество", typeof(int));
-        table.Columns.Add("Цена", typeof(double));
-        table.Columns.Add("Дата", typeof(DateTime));
+        table.Columns.Add("Торговая точка");
+        table.Columns.Add("Количество");
+        table.Columns.Add("Цена");
+        table.Columns.Add("Сумма");
 
-        var query = Program.Store.Supplies.AsEnumerable();
+        var supplies = Program.Store.Supplies
+            .Where(s =>
+                s.SupplierId == supplierId &&
+                s.ProductId == productId);
 
         if (from.HasValue)
-            query = query.Where(x => x.Date >= from.Value);
+            supplies = supplies
+                .Where(s => s.Date.Date >= from.Value.Date);
 
         if (to.HasValue)
-            query = query.Where(x => x.Date <= to.Value);
+            supplies = supplies
+                .Where(s => s.Date.Date <= to.Value.Date);
 
-        if (supplierId.HasValue)
-            query = query.Where(x => x.SupplierId == supplierId.Value);
-
-        foreach (var s in query)
+        foreach (var s in supplies.OrderBy(s => s.Date))
         {
             var supplier = Program.Store.Suppliers
-                .FirstOrDefault(x => x.Id == s.SupplierId)?.Name ?? "N/A";
+                .FirstOrDefault(x => x.Id == s.SupplierId);
 
             var product = Program.Store.Products
-                .FirstOrDefault(x => x.Id == s.ProductId)?.Name ?? "N/A";
+                .FirstOrDefault(x => x.Id == s.ProductId);
 
-            table.Rows.Add(supplier, product, s.Quantity, s.Price, s.Date);
+            var point = Program.Store.TradePoints
+                .FirstOrDefault(x => x.Id == s.TradePointId);
+
+            table.Rows.Add(
+                s.Id,
+                s.Date.ToShortDateString(),
+                supplier?.Name ?? "",
+                product?.Name ?? "",
+                point?.Name ?? "",
+                s.Quantity,
+                s.Price,
+                s.Quantity * s.Price
+            );
         }
 
         return table;

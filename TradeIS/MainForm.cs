@@ -1919,7 +1919,7 @@ namespace TradeIS
                             }
                             else if (mode == "По типу торговой точки")
                             {
-                                string type = cbType.Text;
+                                string type = cbReportTypeTP.Text;
 
                                 result = _reportEngine.GetProductPricesByPointType(
                                     productId,
@@ -1990,8 +1990,6 @@ namespace TradeIS
 
                     case "Объём продаж товара":
                         {
-                            LoadProductReportFilter();
-
                             var productId = Program.Store.Products
                                 .FirstOrDefault(p => p.Name == productName)?.Id ?? 0;
 
@@ -1999,7 +1997,7 @@ namespace TradeIS
 
                             if (mode == "По типу торговой точки")
                             {
-                                string type = GetTradePointTypeInternal(cbType.Text);
+                                string type = GetTradePointTypeInternal(cbReportTypeTP.Text);
 
                                 result = _reportEngine.GetProductSalesVolumeByType(
                                     productId,
@@ -2032,16 +2030,58 @@ namespace TradeIS
                             break;
                         }
 
+                    case "Зарплата продавцов":
+                        {
+                            string mode = cbReportFilter.Text;
+
+                            if (mode == "По типу торговой точки")
+                            {
+                                string type = GetTradePointTypeInternal(
+                                    cbReportTypeTP.Text);
+
+                                result = _reportEngine.GetSellersSalaryByType(
+                                    type,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+                            else if (mode == "По конкретной торговой точке")
+                            {
+                                int tpId = Program.Store.TradePoints
+                                    .FirstOrDefault(t =>
+                                        t.Name == cbTradePoint.Text)?.Id ?? 0;
+
+                                result = _reportEngine.GetSellersSalaryByPoint(
+                                    tpId,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+                            else
+                            {
+                                result = _reportEngine.GetSellersSalaryAll(
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+
+                            break;
+                        }
                     case "Поставки поставщика":
                         {
                             var supplierId = Program.Store.Suppliers
-                                .FirstOrDefault(s => s.Name == supplierName)?.Id ?? 0;
+                                .FirstOrDefault(s => s.Name == cbSupplier.Text)?.Id ?? 0;
 
-                            result = _reportEngine.GetSuppliesBySupplier(
+                            var productId = Program.Store.Products
+                                .FirstOrDefault(p => p.Name == cbProduct.Text)?.Id ?? 0;
+
+                            result = _reportEngine.GetSupplierProductSupplies(
                                 supplierId,
-                                from,
-                                to
+                                productId,
+                                dtFrom.Value,
+                                dtTo.Value
                             );
+
                             break;
                         }
 
@@ -2142,8 +2182,6 @@ namespace TradeIS
                     ShowFilters(
                         lblReportFilter, cbReportFilter,
                         lblReportProduct, cbProduct,
-                        lblReportTypeTP, cbType,
-                        lblReportTradePoint, cbTradePoint,
                         lblReportDateFrom, dtFrom,
                         lblReportDateTo, dtTo);
                     break;
@@ -2151,7 +2189,17 @@ namespace TradeIS
                 case "Выработка продавцов":
                     ShowFilters(
                         lblReportFilter, cbReportFilter,
-                        lblReportTypeTP, cbReportTypeTP,
+                        lblReportDateFrom, dtFrom,
+                        lblReportDateTo, dtTo);
+                    break;
+                case "Зарплата продавцов":
+                    ShowFilters(
+                        lblReportFilter, cbReportFilter);
+                    break;
+                case "Поставки поставщика":
+                    ShowFilters(
+                        lblReportSupplier, cbSupplier,
+                        lblReportProduct, cbProduct,
                         lblReportDateFrom, dtFrom,
                         lblReportDateTo, dtTo);
                     break;
@@ -2217,6 +2265,29 @@ namespace TradeIS
             {
                 lblReportTypeTP.Visible = (mode == "По типу торговой точки");
                 cbReportTypeTP.Visible = (mode == "По типу торговой точки");
+
+                return;
+            }
+            if (report == "Зарплата продавцов")
+            {
+                mode = cbReportFilter.Text;
+
+                lblReportTradePoint.Visible = false;
+                cbTradePoint.Visible = false;
+
+                lblReportTypeTP.Visible = false;
+                cbReportTypeTP.Visible = false;
+
+                if (mode == "По типу торговой точки")
+                {
+                    lblReportTypeTP.Visible = true;
+                    cbReportTypeTP.Visible = true;
+                }
+                else if (mode == "По конкретной торговой точке")
+                {
+                    lblReportTradePoint.Visible = true;
+                    cbTradePoint.Visible = true;
+                }
 
                 return;
             }
@@ -2450,9 +2521,10 @@ namespace TradeIS
                 case "Цены товара по точкам":
                 case "Объём продаж товара":
                 case "Выработка продавцов":
+                case "Зарплата продавцов":
                 case "Товарооборот":
-                    cbReportFilter.Items.Add("По типу торговой точки");
                     cbReportFilter.Items.Add("Все торговые точки");
+                    cbReportFilter.Items.Add("По типу торговой точки");
                     cbReportFilter.Items.Add("По конкретной торговой точке");
                     break;
 
