@@ -23,6 +23,14 @@ namespace TradeIS
         private int _editRequestId = -1;
         private int _editOrderId = -1;
 
+        private static readonly Dictionary<string, string> TradePointTypeNames = new()
+        {
+            ["Shop"] = "Магазин",
+            ["Kiosk"] = "Киоск",
+            ["Stall"] = "Лоток",
+            ["DepartmentStore"] = "Универмаг"
+        };
+
         public MainForm()
         {
             InitializeComponent();
@@ -37,8 +45,18 @@ namespace TradeIS
 
             RefreshComboSources();
             LoadProductCategories();
+            LoadTradePointTypes();
             LoadCategories();
+            LoadTradePointsForReports();
 
+            dtpSaleDate.MaxDate = DateTime.Today;
+            dtpSupplyDate.MaxDate = DateTime.Today;
+
+            dtpRequestDate.Visible = false;
+            lblRequestDate.Visible = false;
+
+            dtpOrderDate.Visible = false;
+            lblOrderDate.Visible = false;
 
             dgvReport.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvReport.AllowUserToAddRows = false;
@@ -70,7 +88,8 @@ namespace TradeIS
                 cbRequestProduct, cbRequestTradePoint, cbReport, cbSeller,
                 cbTradePoint, cbSupplier, cbProduct, cbCustomer,
                 cbSaleSeller, cbSaleTradePoint, cbSaleProduct, cbSaleCustomer,
-                cbSupplySupplier, cbReports, cbProductCategory, cbReportCategory, cbReportFilter // и остальные, если пропустил
+                cbSupplySupplier, cbReports, cbProductCategory, cbReportCategory, cbReportFilter,
+                cbSupplyTradePoint, cbTradePoint, cbReportTypeTP
             };
 
             foreach (var cb in allComboBoxes)
@@ -113,7 +132,7 @@ namespace TradeIS
                 "Цены товара по точкам",
                 "Выработка продавцов",
                 "Выработка конкретного продавца",
-                "Продажи товара",
+                "Объём продаж товара",
                 "Зарплата продавцов",
                 "Поставки поставщика",
                 "Эффективность торговых точек",
@@ -223,6 +242,7 @@ namespace TradeIS
             UpdateCombo(cbSaleTradePoint, Program.Store.TradePoints);
             UpdateCombo(cbSaleSeller, Program.Store.Sellers);
             UpdateCombo(cbSaleCustomer, Program.Store.Customers);
+            UpdateCombo(cbSupplyTradePoint, Program.Store.TradePoints);
 
             // Для заявок и заказов используем привязку по ID
             UpdateCombo(cbRequestTradePoint, Program.Store.TradePoints);
@@ -243,22 +263,43 @@ namespace TradeIS
             cbReportCategory.Items.Clear();
 
             var categories = Program.Store.Products
-                .Where(p => !string.IsNullOrWhiteSpace(p.Category))
                 .Select(p => p.Category)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
                 .Distinct()
-                .OrderBy(c => c);
+                .OrderBy(c => c)
+                .ToList();
 
-            foreach (var c in categories)
+            cbReportCategory.Items.AddRange(categories.ToArray());
+        }
+        private void LoadTradePointTypes()
+        {
+            cbReportTypeTP.Items.Clear();
+
+            var types = Program.Store.TradePoints
+                .Select(t => t.GetType().Name)
+                .Distinct()
+                .ToList();
+
+            foreach (var type in types)
             {
-                cbReportCategory.Items.Add(c);
+                if (TradePointTypeNames.TryGetValue(type, out var ruName))
+                    cbReportTypeTP.Items.Add(ruName);
+                else
+                    cbReportTypeTP.Items.Add(type); // fallback
             }
         }
+
         private void UpdateCombo(ComboBox cb, object data)
         {
             cb.DataSource = null;
-            cb.DataSource = data;
+
             cb.DisplayMember = "Name";
-            cb.ValueMember = "Id"; // Позволяет получать SelectedValue как int
+            cb.ValueMember = "Id";
+
+            cb.DataSource = data;
+
+            if (cb.Items.Count > 0)
+                cb.SelectedIndex = 0;
         }
         private void EnsureProductExists(string productName)
         {
@@ -315,6 +356,7 @@ namespace TradeIS
 
                     FillPointData(newPoint);
                     Program.Store.TradePoints.Add(newPoint);
+                    LoadTradePointTypes();
                 }
                 else // РЕЖИМ ИЗМЕНЕНИЯ
                 {
@@ -342,6 +384,8 @@ namespace TradeIS
                 RefreshComboSources(); // Чтобы в отчетах и других вкладках обновились списки
                 StorageManager.Save(Program.Store);
                 ResetTradePointEditor(); // Очищаем поля и сбрасываем кнопки
+                LoadTradePointTypes();
+
             }
             catch (Exception ex)
             {
@@ -392,10 +436,8 @@ namespace TradeIS
 
             if (dgvTradePoints.CurrentRow == null) return;
 
-            // Берем Id из таблицы (нужно, чтобы в DataGridView был столбец "Id")
             int id = (int)dgvTradePoints.CurrentRow.Cells["Id"].Value;
 
-            // Находим реальный объект в Store
             var point = Program.Store.TradePoints.FirstOrDefault(x => x.Id == id);
             if (point == null) return;
 
@@ -429,6 +471,12 @@ namespace TradeIS
                         Program.Store.Requests.RemoveAt(i);
                 }
 
+                // ДОБАВЛЕНО: удаляем поставки (SUPPLIES)
+                for (int i = Program.Store.Supplies.Count - 1; i >= 0; i--)
+                {
+                    if (Program.Store.Supplies[i].TradePointId == point.Id)
+                        Program.Store.Supplies.RemoveAt(i);
+                }
                 // Удаляем саму точку
                 Program.Store.TradePoints.Remove(point);
 
@@ -437,14 +485,18 @@ namespace TradeIS
                 RefreshGrid(dgvSellers, Program.Store.Sellers);
                 RefreshGrid(dgvSales, Program.Store.Sales);
                 RefreshRequestsGrid();
-                RefreshComboSources();
-                StorageManager.Save(Program.Store);
 
-                // После удаления
                 RefreshTradePointsGrid();
-                RefreshSellersGrid(); // <- здесь будет вызов GetSellersView()
-                RefreshSalesGrid();   // <- вызов GetSalesView()
-                RefreshRequestsGrid(); // <- если есть заявки            }
+                RefreshSellersGrid();
+                RefreshSalesGrid();
+                RefreshRequestsGrid();
+                RefreshSuppliesGrid();
+
+                // ДОБАВЛЕНО: обновить ComboBox поставок
+                RefreshComboSources();
+                LoadTradePointTypes();
+
+                StorageManager.Save(Program.Store);
             }
         }
         private void ResetTradePointEditor()
@@ -567,7 +619,7 @@ namespace TradeIS
                 RefreshProductsGrid();
                 RefreshComboSources();
                 StorageManager.Save(Program.Store);
-
+                RefreshCategoryCombo();
                 MessageBox.Show("Данные обновлены!");
             }
         }
@@ -657,6 +709,7 @@ namespace TradeIS
 
             StorageManager.Save(Program.Store);
 
+            RefreshCategoryCombo();
             ResetProductEditor();
         }
         private void ResetProductEditor()
@@ -698,15 +751,12 @@ namespace TradeIS
 
             var categories = Program.Store.Products
                 .Select(p => p.Category)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
                 .Distinct()
-                .OrderBy(x => x);
+                .OrderBy(c => c)
+                .ToArray();
 
-            foreach (var c in categories)
-            {
-                cbReportCategory.Items.AddRange(
-                    categories.Where(c => c != null).ToArray()
-                );
-            }
+            cbReportCategory.Items.AddRange(categories);
         }
         private void LoadCategories()
         {
@@ -1201,6 +1251,12 @@ namespace TradeIS
             if (!IsValid(numSaleQuantity.Value > 0, "Укажите количество!")) return;
             if (!IsValid(numSalePrice.Value > 0, "Укажите цену!")) return;
 
+            if (dtpSaleDate.Value.Date > DateTime.Today)
+            {
+                MessageBox.Show("Дата продажи не может быть больше текущей!");
+                return;
+            }
+
             int productId = (int)cbSaleProduct.SelectedValue;
             int tradePointId = (int)cbSaleTradePoint.SelectedValue;
             int sellerId = (int)cbSaleSeller.SelectedValue;
@@ -1219,7 +1275,7 @@ namespace TradeIS
             // Проверка клиента только если требуется
             var tp = Program.Store.TradePoints.FirstOrDefault(x => x.Id == tradePointId);
 
-            if (tp != null && (tp.GetPointType() == "Киоск" || tp.GetPointType() == "Лоток"))
+            if (tp != null && (tp.GetPointType() == "Kiosk" || tp.GetPointType() == "Stall"))
             {
                 if (cbSaleCustomer.SelectedValue == null)
                 {
@@ -1233,6 +1289,8 @@ namespace TradeIS
             AddItem(Program.Store.Sales, sale, dgvSales);
 
             DecreaseStock(tradePointId, productId, sale.Quantity);
+
+            RefreshSalesGrid();
         }
         private void btnDeleteSale_Click(object sender, EventArgs e)
         {
@@ -1254,11 +1312,35 @@ namespace TradeIS
             if (result != DialogResult.Yes)
                 return;
 
-            // возвращаем остаток на склад (если у тебя это предусмотрено)
-            IncreaseStock(sale.ProductId, sale.Quantity);
+            // 1. возвращаем товар на склад
+            var stock = Program.Store.Stocks.FirstOrDefault(s =>
+                s.TradePointId == sale.TradePointId &&
+                s.ProductId == sale.ProductId);
+
+            if (stock != null)
+            {
+                stock.Quantity += sale.Quantity;
+                stock.UpdatedAt = DateTime.Now;
+            }
+            else
+            {
+                Program.Store.Stocks.Add(new Stock
+                {
+                    TradePointId = sale.TradePointId,
+                    ProductId = sale.ProductId,
+                    Quantity = sale.Quantity,
+                    UpdatedAt = DateTime.Now
+                });
+            }
+
+            // 2. удаляем продажу
             Program.Store.Sales.Remove(sale);
 
+            // 3. обновляем UI
             RefreshSalesGrid();
+            RefreshGrid(dgvProducts, Program.Store.Products);
+            RefreshComboSources();
+
             StorageManager.Save(Program.Store);
         }
         private void RefreshSalesGrid()
@@ -1294,21 +1376,37 @@ namespace TradeIS
             if (cbSupplySupplier.SelectedValue == null)
                 return;
 
-            if (!IsValid(!string.IsNullOrWhiteSpace(cbSupplyProduct.Text), "Выберите или введите товар!"))
+            if (cbSupplyTradePoint.SelectedValue == null)
+            {
+                MessageBox.Show("Выберите торговую точку!");
+                return;
+            }
+
+            if (!IsValid(!string.IsNullOrWhiteSpace(cbSupplyProduct.Text),
+                "Выберите или введите товар!"))
                 return;
 
-            if (!IsValid(numSupplyQuantity.Value > 0, "Количество должно быть больше 0!"))
+            if (!IsValid(numSupplyQuantity.Value > 0,
+                "Количество должно быть больше 0!"))
                 return;
 
-            if (!IsValid(numSupplyPrice.Value > 0, "Цена должна быть больше 0!"))
+            if (!IsValid(numSupplyPrice.Value > 0,
+                "Цена должна быть больше 0!"))
                 return;
+
+            if (dtpSupplyDate.Value.Date > DateTime.Today)
+            {
+                MessageBox.Show("Дата поставки не может быть больше текущей!");
+                return;
+            }
 
             EnsureProductExists(cbSupplyProduct.Text);
 
             int supplierId = (int)cbSupplySupplier.SelectedValue;
+            int tradePointId = (int)cbSupplyTradePoint.SelectedValue;
 
             var product = Program.Store.Products
-                .FirstOrDefault(p => p.Name == cbSupplyProduct.Text);
+                .FirstOrDefault(p => p.Name == cbSupplyProduct.Text.Trim());
 
             if (product == null)
                 return;
@@ -1316,6 +1414,7 @@ namespace TradeIS
             var supply = new Supply
             {
                 Id = Program.Store.Counters.SupplyId++,
+                TradePointId = tradePointId,
                 SupplierId = supplierId,
                 ProductId = product.Id,
                 Quantity = (int)numSupplyQuantity.Value,
@@ -1323,11 +1422,14 @@ namespace TradeIS
                 Date = dtpSupplyDate.Value
             };
 
+            IncreaseStock(
+                tradePointId,
+                product.Id,
+                supply.Quantity);
+
             Program.Store.Supplies.Add(supply);
 
             RefreshSuppliesGrid();
-
-            IncreaseStock(product.Id, supply.Quantity);
 
             StorageManager.Save(Program.Store);
         }
@@ -1336,27 +1438,47 @@ namespace TradeIS
             if (dgvSupplies.CurrentRow == null)
                 return;
 
-            int id = Convert.ToInt32(dgvSupplies.CurrentRow.Cells["Id"].Value);
+            int id = Convert.ToInt32(
+                dgvSupplies.CurrentRow.Cells["Id"].Value);
 
-            var supply = Program.Store.Supplies.FirstOrDefault(s => s.Id == id);
+            var supply = Program.Store.Supplies
+                .FirstOrDefault(s => s.Id == id);
+
             if (supply == null)
                 return;
 
-            var result = MessageBox.Show(
-                "Удалить поставку?",
+            var confirm = MessageBox.Show(
+                "Удалить поставку? Это изменит остатки на складе.",
                 "Подтверждение",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
 
-            if (result != DialogResult.Yes)
+            if (confirm != DialogResult.Yes)
                 return;
 
+            // уменьшаем остаток
+            var stock = Program.Store.Stocks
+                .FirstOrDefault(s =>
+                    s.TradePointId == supply.TradePointId &&
+                    s.ProductId == supply.ProductId);
+
+            if (stock != null)
+            {
+                stock.Quantity -= supply.Quantity;
+
+                if (stock.Quantity <= 0)
+                    Program.Store.Stocks.Remove(stock);
+            }
+
+            // удаляем поставку
             Program.Store.Supplies.Remove(supply);
 
-            // откат склада
-            IncreaseStock(supply.ProductId, -supply.Quantity);
-
+            // обновляем UI
             RefreshSuppliesGrid();
+            RefreshProductsGrid();
+
+            RefreshComboSources();
+
             StorageManager.Save(Program.Store);
         }
         private void RefreshSuppliesGrid()
@@ -1366,6 +1488,7 @@ namespace TradeIS
                 s.Id,
                 Supplier = Lookup.SupplierName(s.SupplierId),
                 Product = Lookup.ProductName(s.ProductId),
+                TradePoint = Lookup.TradePointName(s.TradePointId),
                 s.Quantity,
                 s.Price,
                 s.Date
@@ -1378,6 +1501,7 @@ namespace TradeIS
                 ["Id"] = "ID",
                 ["Supplier"] = "Поставщик",
                 ["Product"] = "Товар",
+                ["TradePoint"] = "Торговая точка",
                 ["Quantity"] = "Количество",
                 ["Price"] = "Цена",
                 ["Date"] = "Дата"
@@ -1680,7 +1804,6 @@ namespace TradeIS
                     case "Поставщики товара":
                         {
                             int minQuantity = (int)numQuantity.Value;
-
                             if (cbReportFilter.Text == "По виду товара")
                             {
                                 var category = cbReportCategory.Text;
@@ -1723,28 +1846,59 @@ namespace TradeIS
                     case "Покупатели товара":
                     case "Покупатели товара по точкам":
                         {
-                            var productId = Program.Store.Products
-                                .FirstOrDefault(p => p.Name == productName)?.Id ?? 0;
+                            int minQuantity = (int)numQuantity.Value;
 
-                            var tpId = Program.Store.TradePoints
-                                .FirstOrDefault(t => t.Name == tpName)?.Id;
+                            if (cbReportFilter.Text == "По виду товара")
+                            {
+                                var category = cbReportCategory.Text;
 
-                            result = _reportEngine.GetCustomersByProduct(
-                                productId,
-                                from.Value,
-                                to.Value,
-                                null,
-                                quantity
-                            );
+                                if (string.IsNullOrWhiteSpace(category))
+                                {
+                                    result = new DataTable();
+                                    break;
+                                }
+
+                                result = _reportEngine.GetCustomersByCategory(
+                                    category,
+                                    from,
+                                    to,
+                                    minQuantity
+                                );
+                            }
+                            else
+                            {
+                                var product = Program.Store.Products
+                                    .FirstOrDefault(p => p.Name == productName);
+
+                                if (product == null)
+                                {
+                                    result = new DataTable();
+                                    break;
+                                }
+
+                                result = _reportEngine.GetCustomersByProduct(
+                                    product.Id,
+                                    from,
+                                    to,
+                                    minQuantity
+                                );
+                            }
+
                             break;
                         }
 
                     case "Товары в торговой точке":
                         {
-                            var tpId = Program.Store.TradePoints
-                                .FirstOrDefault(t => t.Name == tpName)?.Id ?? 0;
+                            var tp = Program.Store.TradePoints
+                                .FirstOrDefault(t => t.Name == tpName);
 
-                            result = _reportEngine.GetProductsInPoint(tpId);
+                            if (tp == null)
+                            {
+                                result = new DataTable();
+                                break;
+                            }
+
+                            result = _reportEngine.GetProductsInTradePoint(tp.Id);
                             break;
                         }
 
@@ -1753,21 +1907,66 @@ namespace TradeIS
                             var productId = Program.Store.Products
                                 .FirstOrDefault(p => p.Name == productName)?.Id ?? 0;
 
-                            result = _reportEngine.GetProductPricesByPoints(
-                                productId,
-                                null
-                            );
+                            string mode = cbReportFilter.Text;
+
+                            if (mode == "Все торговые точки")
+                            {
+                                result = _reportEngine.GetProductPricesByPoints(
+                                    productId,
+                                    null,
+                                    null
+                                );
+                            }
+                            else if (mode == "По типу торговой точки")
+                            {
+                                string type = cbType.Text;
+
+                                result = _reportEngine.GetProductPricesByPointType(
+                                    productId,
+                                    type
+                                );
+                            }
+                            else if (mode == "По конкретной торговой точке")
+                            {
+                                var tpId = Program.Store.TradePoints
+                                    .FirstOrDefault(t => t.Name == cbTradePoint.Text)?.Id ?? 0;
+
+                                result = _reportEngine.GetProductPricesByPoint(
+                                    productId,
+                                    tpId
+                                );
+                            }
+                            else
+                            {
+                                result = new DataTable();
+                            }
+
                             break;
                         }
 
                     case "Выработка продавцов":
-                    case "Зарплата продавцов":
                         {
-                            result = _reportEngine.GetSellersProductivity(
-                                from.Value,
-                                to.Value,
-                                null
-                            );
+                            if (cbReportFilter.Text == "По типу торговой точки")
+                            {
+                                string type = GetTradePointTypeInternal(
+                                    cbReportTypeTP.Text);
+
+                                result = _reportEngine
+                                    .GetSellersProductivityByType(
+                                        from.Value,
+                                        to.Value,
+                                        type
+                                    );
+                            }
+                            else
+                            {
+                                result = _reportEngine
+                                    .GetSellersProductivity(
+                                        from.Value,
+                                        to.Value
+                                    );
+                            }
+
                             break;
                         }
 
@@ -1785,23 +1984,51 @@ namespace TradeIS
                                 from.Value,
                                 to.Value
                             );
+
                             break;
                         }
 
-                    case "Продажи товара":
+                    case "Объём продаж товара":
                         {
+                            LoadProductReportFilter();
+
                             var productId = Program.Store.Products
                                 .FirstOrDefault(p => p.Name == productName)?.Id ?? 0;
 
-                            var tpId = Program.Store.TradePoints
-                                .FirstOrDefault(t => t.Name == tpName)?.Id;
+                            string mode = cbReportFilter.Text;
 
-                            result = _reportEngine.GetProductSalesReport(
-                                productId,
-                                from.Value,
-                                to.Value,
-                                tpId
-                            );
+                            if (mode == "По типу торговой точки")
+                            {
+                                string type = GetTradePointTypeInternal(cbType.Text);
+
+                                result = _reportEngine.GetProductSalesVolumeByType(
+                                    productId,
+                                    type,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+                            else if (mode == "По конкретной торговой точке")
+                            {
+                                var tpId = Program.Store.TradePoints
+                                    .FirstOrDefault(t => t.Name == cbTradePoint.Text)?.Id ?? 0;
+
+                                result = _reportEngine.GetProductSalesVolumeByPoint(
+                                    productId,
+                                    tpId,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+                            else
+                            {
+                                result = _reportEngine.GetProductSalesVolumeAll(
+                                    productId,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+
                             break;
                         }
 
@@ -1854,173 +2081,79 @@ namespace TradeIS
                 MessageBox.Show($"Ошибка: {ex.Message}");
             }
         }
+        private void UpdateReportFilter(string reportName)
+        {
+            cbReportFilter.Items.Clear();
+
+            switch (reportName)
+            {
+                case "Поставщики товара":
+                case "Покупатели товара":
+                    cbReportFilter.Items.Add("По виду товара");
+                    cbReportFilter.Items.Add("По товару");
+                    cbReportFilter.SelectedIndex = 0;
+                    cbReportCategory.SelectedIndex = 0;
+                    break;
+
+                case "Цены товара по точкам":
+                    cbReportFilter.Items.Add("Все торговые точки");
+                    cbReportFilter.Items.Add("По типу торговой точки");
+                    cbReportFilter.Items.Add("По конкретной торговой точке");
+                    cbReportFilter.SelectedIndex = 0;
+                    cbReportCategory.SelectedIndex = 0;
+                    break;
+            }
+        }
         private void cbReport_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (cbReport.SelectedItem == null)
                 return;
 
             HideAllFilters();
+            ResetReportFilter();
 
             string report = cbReport.SelectedItem.ToString();
 
+            LoadReportFilter(report);
+
             switch (report)
             {
-                // 1. Поставщики товара
                 case "Поставщики товара":
-
-                    ShowFilters(
-                        lblReportProduct, cbProduct,
-                        lblReportDateFrom, dtFrom,
-                        lblReportDateTo, dtTo,
-                        lblReportQuantity, numQuantity);
-
-                    break;
-
-                // 2. Покупатели товара
                 case "Покупатели товара":
-
                     ShowFilters(
+                        lblReportFilter, cbReportFilter,
                         lblReportProduct, cbProduct,
                         lblReportDateFrom, dtFrom,
                         lblReportDateTo, dtTo,
                         lblReportQuantity, numQuantity);
-
                     break;
 
-                // 3. Товары в торговой точке
-                case "Товары в торговой точке":
-
-                    ShowFilters(
-                        lblReportTradePoint,
-                        cbTradePoint,
-
-                        lblReportCategory,
-                        cbReportCategory);
-
-                    break;
-
-                // 4. Цены товара по точкам
                 case "Цены товара по точкам":
-
                     ShowFilters(
+                        lblReportFilter, cbReportFilter,
                         lblReportProduct, cbProduct,
-                        lblTypeTP, cbType,
-                        lblReportTradePoint, cbTradePoint);
-
+                        lblReportTypeTP, cbReportTypeTP,
+                        lblReportTradePoint, cbTradePoint,
+                        lblReportDateFrom, dtFrom,
+                        lblReportDateTo, dtTo);
                     break;
 
-                // 5. Выработка продавцов
+                case "Объём продаж товара":
+                    ShowFilters(
+                        lblReportFilter, cbReportFilter,
+                        lblReportProduct, cbProduct,
+                        lblReportTypeTP, cbType,
+                        lblReportTradePoint, cbTradePoint,
+                        lblReportDateFrom, dtFrom,
+                        lblReportDateTo, dtTo);
+                    break;
+
                 case "Выработка продавцов":
-
                     ShowFilters(
-                        lblReportDateFrom, dtFrom,
-                        lblReportDateTo, dtTo,
-                        lblTypeTP, cbType);
-
-                    break;
-
-                // 6. Выработка конкретного продавца
-                case "Выработка конкретного продавца":
-
-                    ShowFilters(
-                        lblReportSeller, cbSeller,
-                        lblReportTradePoint, cbTradePoint,
+                        lblReportFilter, cbReportFilter,
+                        lblReportTypeTP, cbReportTypeTP,
                         lblReportDateFrom, dtFrom,
                         lblReportDateTo, dtTo);
-
-                    break;
-
-                // 7. Продажи товара
-                case "Продажи товара":
-
-                    ShowFilters(
-                        lblReportProduct, cbProduct,
-                        lblReportTradePoint, cbTradePoint,
-                        lblTypeTP, cbType,
-                        lblReportDateFrom, dtFrom,
-                        lblReportDateTo, dtTo);
-
-                    break;
-
-                // 8. Зарплата продавцов
-                case "Зарплата продавцов":
-
-                    ShowFilters(
-                        lblTypeTP, cbType);
-
-                    break;
-
-                // 9. Поставки поставщика
-                case "Поставки поставщика":
-
-                    ShowFilters(
-                        lblReportSupplier, cbSupplier,
-                        lblReportProduct, cbProduct,
-                        lblReportDateFrom, dtFrom,
-                        lblReportDateTo, dtTo);
-
-                    break;
-
-                // 10. Эффективность торговых точек
-                case "Эффективность торговых точек":
-
-                    ShowFilters(
-                        lblReportTradePoint, cbTradePoint,
-                        lblTypeTP, cbType,
-                        lblReportDateFrom, dtFrom,
-                        lblReportDateTo, dtTo);
-
-                    break;
-
-                // 11. Рентабельность точки
-                case "Рентабельность точки":
-
-                    ShowFilters(
-                        lblReportTradePoint, cbTradePoint,
-                        lblReportDateFrom, dtFrom,
-                        lblReportDateTo, dtTo);
-
-                    break;
-
-                // 12. Поставки по номеру заказа
-                case "Поставки по номеру заказа":
-
-                    ShowFilters(
-                        lblReportQuantity, numQuantity);
-
-                    break;
-
-                // 13. Покупатели товара по точкам
-                case "Покупатели товара по точкам":
-
-                    ShowFilters(
-                        lblReportProduct, cbProduct,
-                        lblTypeTP, cbType,
-                        lblReportTradePoint, cbTradePoint,
-                        lblReportDateFrom, dtFrom,
-                        lblReportDateTo, dtTo);
-
-                    break;
-
-                // 14. Активные покупатели
-                case "Активные покупатели":
-
-                    ShowFilters(
-                        lblReportDateFrom, dtFrom,
-                        lblReportDateTo, dtTo,
-                        lblReportQuantity, numQuantity);
-
-                    break;
-
-                // 15. Товарооборот
-                case "Товарооборот":
-
-                    ShowFilters(
-                        lblTypeTP, cbType,
-                        lblReportTradePoint, cbTradePoint,
-                        lblReportDateFrom, dtFrom,
-                        lblReportDateTo, dtTo);
-
                     break;
             }
         }
@@ -2047,26 +2180,92 @@ namespace TradeIS
         }
         private void cbReportFilter_SelectedIndexChanged(object sender, EventArgs e)
         {
-            bool byCategory = cbReportFilter.Text == "По виду товара";
+            string report = cbReport.SelectedItem?.ToString();
+            string mode = cbReportFilter.Text;
 
-            lblReportProduct.Visible = !byCategory;
-            cbProduct.Visible = !byCategory;
+            if (report == "Поставщики товара" || report == "Покупатели товара")
+            {
+                bool byCategory = mode == "По виду товара";
 
-            lblReportCategory.Visible = byCategory;
-            cbReportCategory.Visible = byCategory;
+                lblReportProduct.Visible = !byCategory;
+                cbProduct.Visible = !byCategory;
 
-            numQuantity.Visible = !byCategory;
-            lblReportQuantity.Visible = !byCategory;
+                lblReportCategory.Visible = byCategory;
+                cbReportCategory.Visible = byCategory;
 
-            if (byCategory)
-                numQuantity.Value = 0;
+                lblReportQuantity.Visible = !byCategory;
+                numQuantity.Visible = !byCategory;
+
+                if (byCategory)
+                    numQuantity.Value = 0;
+
+                return;
+            }
+
+            if (report == "Цены товара по точкам" || report == "Объём продаж товара")
+            {
+                lblReportTypeTP.Visible = (mode == "По типу торговой точки");
+                cbReportTypeTP.Visible = (mode == "По типу торговой точки");
+
+                lblReportTradePoint.Visible = (mode == "По конкретной торговой точке");
+                cbTradePoint.Visible = (mode == "По конкретной торговой точке");
+
+                return;
+            }
+
+            if (report == "Выработка продавцов")
+            {
+                lblReportTypeTP.Visible = (mode == "По типу торговой точки");
+                cbReportTypeTP.Visible = (mode == "По типу торговой точки");
+
+                return;
+            }
+        }
+        private void cbSaleTradePoint_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            var tp = cbSaleTradePoint.SelectedItem as TradePoint;
+
+            if (tp == null)
+                return;
+
+            bool hideCustomer =
+                tp.GetPointType() == "Киоск" ||
+                tp.GetPointType() == "Лоток";
+
+            lblSaleCustomer.Visible = !hideCustomer;
+            cbSaleCustomer.Visible = !hideCustomer;
+
+            if (hideCustomer)
+                cbSaleCustomer.SelectedIndex = -1;
+        }
+
+        private string GetTradePointTypeInternal(string russianType)
+        {
+            switch (russianType)
+            {
+                case "Магазин":
+                    return "Shop";
+
+                case "Киоск":
+                    return "Kiosk";
+
+                case "Лоток":
+                    return "Stall";
+
+                case "Универмаг":
+                    return "DepartmentStore";
+
+                default:
+                    return "";
+            }
         }
         private void ShowFilters(params Control[] ctrls) { HideAllFilters(); foreach (var c in ctrls) c.Visible = true; }
         private void HideAllFilters()
         {
             Control[] f = { lblReportProduct, cbProduct, lblReportCustomer, cbCustomer, lblReportSupplier, cbSupplier,
                            lblReportSeller, cbSeller, lblReportTradePoint, cbTradePoint, lblReportCategory, cbReportCategory, lblReportDateFrom, dtFrom,
-                           lblReportDateTo, dtTo, lblReportQuantity, numQuantity };
+                           lblReportDateTo, dtTo, lblReportQuantity, numQuantity, lblReportCategory, cbReportCategory, lblReportFilter, cbReportFilter,
+                            lblReportTypeTP, cbReportTypeTP};
             foreach (var c in f) c.Visible = false;
         }
 
@@ -2096,15 +2295,18 @@ namespace TradeIS
             StorageManager.Save(Program.Store);
         }
 
-        private void IncreaseStock(int productId, int quantity)
+        private void IncreaseStock(int tradePointId, int productId, int quantity)
         {
             var stock = Program.Store.Stocks
-                .FirstOrDefault(s => s.ProductId == productId);
+                .FirstOrDefault(s =>
+                    s.TradePointId == tradePointId &&
+                    s.ProductId == productId);
 
             if (stock == null)
             {
                 stock = new Stock
                 {
+                    TradePointId = tradePointId,
                     ProductId = productId,
                     Quantity = 0,
                     UpdatedAt = DateTime.Now
@@ -2118,7 +2320,6 @@ namespace TradeIS
 
             StorageManager.Save(Program.Store);
         }
-
         private void AddTransfer(Transfer t)
         {
             var fromStock = Program.Store.Stocks
@@ -2160,9 +2361,135 @@ namespace TradeIS
 
         #endregion
 
-        private void cbReportFilter_SelectedIndexChanged_1(object sender, EventArgs e)
+        private void cbTradePoint_SelectedIndexChanged(
+            object sender,
+            EventArgs e)
         {
+            cbSeller.DataSource = null;   // ВАЖНО
 
+            cbSeller.Items.Clear();
+
+            var tp = Program.Store.TradePoints
+                .FirstOrDefault(t => t.Name == cbTradePoint.Text);
+
+            if (tp == null)
+                return;
+
+            var sellers = Program.Store.Sellers
+                .Where(s => s.TradePointId == tp.Id)
+                .Select(s => s.Name)
+                .ToArray();
+
+            cbSeller.Items.AddRange(sellers);
+        }
+
+        private void LoadTradePointsForReports()
+        {
+            var tpIds = Program.Store.Sellers
+                .Select(s => s.TradePointId)
+                .Distinct();
+
+            var tradePoints = Program.Store.TradePoints
+                .Where(t => tpIds.Contains(t.Id))
+                .Select(t => t.Name)
+                .ToArray();
+
+            cbTradePoint.DataSource = null;   // ВАЖНО
+
+            cbTradePoint.Items.Clear();
+            cbTradePoint.Items.AddRange(tradePoints);
+        }
+
+        private void LoadProductReportFilter()
+        {
+            cbReportFilter.DataSource = null;
+            cbReportFilter.Items.Clear();
+
+            cbReportFilter.Items.Add("Все торговые точки");
+            cbReportFilter.Items.Add("По типу торговой точки");
+            cbReportFilter.Items.Add("По конкретной торговой точке");
+
+            cbReportFilter.SelectedIndex = 0;
+
+            cbReportFilter.Visible = true;
+            lblReportFilter.Visible = true;
+        }
+
+        private void ResetReportFilter()
+        {
+            cbReportFilter.SelectedIndexChanged -= cbReportFilter_SelectedIndexChanged;
+
+            cbReportFilter.DataSource = null;
+            cbReportFilter.Items.Clear();
+            cbReportFilter.Text = "";
+
+            cbReportFilter.Visible = false;
+            lblReportFilter.Visible = false;
+
+            cbReportFilter.SelectedIndexChanged += cbReportFilter_SelectedIndexChanged;
+        }
+
+        private void LoadReportFilter(string reportName)
+        {
+            cbReportFilter.DataSource = null;
+            cbReportFilter.Items.Clear();
+
+            cbReportFilter.Visible = true;
+            lblReportFilter.Visible = true;
+
+            switch (reportName)
+            {
+                // товарные отчёты
+                case "Поставщики товара":
+                case "Покупатели товара":
+                    cbReportFilter.Items.Add("По товару");
+                    cbReportFilter.Items.Add("По виду товара");
+                    break;
+
+                // точечные отчёты (единый стандарт)
+                case "Цены товара по точкам":
+                case "Объём продаж товара":
+                case "Выработка продавцов":
+                case "Товарооборот":
+                    cbReportFilter.Items.Add("По типу торговой точки");
+                    cbReportFilter.Items.Add("Все торговые точки");
+                    cbReportFilter.Items.Add("По конкретной торговой точке");
+                    break;
+
+                default:
+                    cbReportFilter.Visible = false;
+                    lblReportFilter.Visible = false;
+                    return;
+            }
+
+            cbReportFilter.SelectedIndex = 0;
+        }
+
+        private void LoadTradePointsForSale()
+        {
+            cbSaleTradePoint.DataSource = null;
+
+            cbSaleTradePoint.DataSource = Program.Store.TradePoints;
+            cbSaleTradePoint.DisplayMember = "Name";
+            cbSaleTradePoint.ValueMember = "Id";
+
+            if (cbSaleTradePoint.Items.Count > 0)
+                cbSaleTradePoint.SelectedIndex = 0;
+        }
+
+        private void LoadSellersForSelectedTradePoint(int tradePointId)
+        {
+            cbSaleSeller.DataSource = null;
+
+            cbSaleSeller.DataSource = Program.Store.Sellers
+                .Where(s => s.TradePointId == tradePointId)
+                .ToList();
+
+            cbSaleSeller.DisplayMember = "Name";
+            cbSaleSeller.ValueMember = "Id";
+
+            if (cbSaleSeller.Items.Count > 0)
+                cbSaleSeller.SelectedIndex = 0;
         }
     }
 }

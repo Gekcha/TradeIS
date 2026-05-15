@@ -5,6 +5,8 @@ public class Supply
 {
     [DisplayName("ID")]
     public int Id { get; set; }
+    [DisplayName("Торговая точка")]
+    public int TradePointId { get; set; }
 
     [DisplayName("Поставщик")]
     public int SupplierId { get; set; }

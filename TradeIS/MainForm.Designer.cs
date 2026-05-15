@@ -101,6 +101,8 @@
             cbSaleTradePoint = new ComboBox();
             cbSaleProduct = new ComboBox();
             tabSupplies = new TabPage();
+            cbSupplyTradePoint = new ComboBox();
+            lblSupplyTradePoint = new Label();
             btnDeleteSupply = new Button();
             lblSupplyDate = new Label();
             lblSupplyPrice = new Label();
@@ -116,7 +118,7 @@
             cbSupplySupplier = new ComboBox();
             tabRequests = new TabPage();
             btnEditRequest = new Button();
-            DateRequest = new Label();
+            lblRequestDate = new Label();
             QuantityProductRequest = new Label();
             ProductNameRequest = new Label();
             TradePointRequest = new Label();
@@ -129,7 +131,7 @@
             dgvRequests = new DataGridView();
             SupplierOrder = new TabPage();
             btnEditOrder = new Button();
-            DateOrder = new Label();
+            lblOrderDate = new Label();
             PriceOrder = new Label();
             QuantityProductOrder = new Label();
             ProductNameOrder = new Label();
@@ -147,6 +149,8 @@
             lblCount = new Label();
             btnShowReport = new Button();
             panelFilters = new Panel();
+            lblReportTypeTP = new Label();
+            cbReportTypeTP = new ComboBox();
             cbReportFilter = new ComboBox();
             lblReportFilter = new Label();
             lblReportCategory = new Label();
@@ -921,6 +925,7 @@
             cbSaleTradePoint.Name = "cbSaleTradePoint";
             cbSaleTradePoint.Size = new Size(250, 23);
             cbSaleTradePoint.TabIndex = 1;
+            cbSaleTradePoint.SelectedIndexChanged += cbSaleTradePoint_SelectedIndexChanged;
             // 
             // cbSaleProduct
             // 
@@ -932,6 +937,8 @@
             // 
             // tabSupplies
             // 
+            tabSupplies.Controls.Add(cbSupplyTradePoint);
+            tabSupplies.Controls.Add(lblSupplyTradePoint);
             tabSupplies.Controls.Add(btnDeleteSupply);
             tabSupplies.Controls.Add(lblSupplyDate);
             tabSupplies.Controls.Add(lblSupplyPrice);
@@ -952,6 +959,23 @@
             tabSupplies.TabIndex = 8;
             tabSupplies.Text = "Поставки";
             tabSupplies.UseVisualStyleBackColor = true;
+            // 
+            // cbSupplyTradePoint
+            // 
+            cbSupplyTradePoint.FormattingEnabled = true;
+            cbSupplyTradePoint.Location = new Point(16, 138);
+            cbSupplyTradePoint.Name = "cbSupplyTradePoint";
+            cbSupplyTradePoint.Size = new Size(250, 23);
+            cbSupplyTradePoint.TabIndex = 14;
+            // 
+            // lblSupplyTradePoint
+            // 
+            lblSupplyTradePoint.AutoSize = true;
+            lblSupplyTradePoint.Location = new Point(17, 120);
+            lblSupplyTradePoint.Name = "lblSupplyTradePoint";
+            lblSupplyTradePoint.Size = new Size(91, 15);
+            lblSupplyTradePoint.TabIndex = 13;
+            lblSupplyTradePoint.Text = "Торговая точка";
             // 
             // btnDeleteSupply
             // 
@@ -992,11 +1016,11 @@
             // 
             // lblSupplyProduct
             // 
-            lblSupplyProduct.Location = new Point(20, 206);
+            lblSupplyProduct.Location = new Point(20, 189);
             lblSupplyProduct.Name = "lblSupplyProduct";
-            lblSupplyProduct.Size = new Size(240, 63);
+            lblSupplyProduct.Size = new Size(240, 80);
             lblSupplyProduct.TabIndex = 8;
-            lblSupplyProduct.Text = "Название товара (Если товара нет в списке, просто напишите его название и после нажатия на кнопку Добавить он появится в справочнике товаров)";
+            lblSupplyProduct.Text = "Название товара (Если товара нет в списке, просто напишите его название и после нажатия на кнопку Добавить он появится в справочнике товаров без категории и единицей измерения шт)";
             // 
             // lblSupplySupplier
             // 
@@ -1051,7 +1075,7 @@
             cbSupplyProduct.FormattingEnabled = true;
             cbSupplyProduct.Location = new Point(17, 272);
             cbSupplyProduct.Name = "cbSupplyProduct";
-            cbSupplyProduct.Size = new Size(250, 23);
+            cbSupplyProduct.Size = new Size(249, 23);
             cbSupplyProduct.TabIndex = 1;
             // 
             // cbSupplySupplier
@@ -1065,7 +1089,7 @@
             // tabRequests
             // 
             tabRequests.Controls.Add(btnEditRequest);
-            tabRequests.Controls.Add(DateRequest);
+            tabRequests.Controls.Add(lblRequestDate);
             tabRequests.Controls.Add(QuantityProductRequest);
             tabRequests.Controls.Add(ProductNameRequest);
             tabRequests.Controls.Add(TradePointRequest);
@@ -1094,14 +1118,14 @@
             btnEditRequest.UseVisualStyleBackColor = true;
             btnEditRequest.Click += btnEditRequest_Click;
             // 
-            // DateRequest
+            // lblRequestDate
             // 
-            DateRequest.AutoSize = true;
-            DateRequest.Location = new Point(21, 348);
-            DateRequest.Name = "DateRequest";
-            DateRequest.Size = new Size(71, 15);
-            DateRequest.TabIndex = 10;
-            DateRequest.Text = "Дата заявки";
+            lblRequestDate.AutoSize = true;
+            lblRequestDate.Location = new Point(21, 348);
+            lblRequestDate.Name = "lblRequestDate";
+            lblRequestDate.Size = new Size(71, 15);
+            lblRequestDate.TabIndex = 10;
+            lblRequestDate.Text = "Дата заявки";
             // 
             // QuantityProductRequest
             // 
@@ -1191,7 +1215,7 @@
             // SupplierOrder
             // 
             SupplierOrder.Controls.Add(btnEditOrder);
-            SupplierOrder.Controls.Add(DateOrder);
+            SupplierOrder.Controls.Add(lblOrderDate);
             SupplierOrder.Controls.Add(PriceOrder);
             SupplierOrder.Controls.Add(QuantityProductOrder);
             SupplierOrder.Controls.Add(ProductNameOrder);
@@ -1222,14 +1246,14 @@
             btnEditOrder.UseVisualStyleBackColor = true;
             btnEditOrder.Click += btnEditOrder_Click;
             // 
-            // DateOrder
+            // lblOrderDate
             // 
-            DateOrder.AutoSize = true;
-            DateOrder.Location = new Point(20, 379);
-            DateOrder.Name = "DateOrder";
-            DateOrder.Size = new Size(69, 15);
-            DateOrder.TabIndex = 12;
-            DateOrder.Text = "Дата заказа";
+            lblOrderDate.AutoSize = true;
+            lblOrderDate.Location = new Point(20, 379);
+            lblOrderDate.Name = "lblOrderDate";
+            lblOrderDate.Size = new Size(69, 15);
+            lblOrderDate.TabIndex = 12;
+            lblOrderDate.Text = "Дата заказа";
             // 
             // PriceOrder
             // 
@@ -1360,7 +1384,7 @@
             // lblCount
             // 
             lblCount.AutoSize = true;
-            lblCount.Location = new Point(50, 607);
+            lblCount.Location = new Point(50, 643);
             lblCount.Name = "lblCount";
             lblCount.Size = new Size(78, 15);
             lblCount.TabIndex = 4;
@@ -1368,7 +1392,7 @@
             // 
             // btnShowReport
             // 
-            btnShowReport.Location = new Point(50, 637);
+            btnShowReport.Location = new Point(50, 661);
             btnShowReport.Name = "btnShowReport";
             btnShowReport.Size = new Size(140, 35);
             btnShowReport.TabIndex = 3;
@@ -1378,6 +1402,8 @@
             // 
             // panelFilters
             // 
+            panelFilters.Controls.Add(lblReportTypeTP);
+            panelFilters.Controls.Add(cbReportTypeTP);
             panelFilters.Controls.Add(cbReportFilter);
             panelFilters.Controls.Add(lblReportFilter);
             panelFilters.Controls.Add(lblReportCategory);
@@ -1400,8 +1426,25 @@
             panelFilters.Controls.Add(cbProduct);
             panelFilters.Location = new Point(8, 80);
             panelFilters.Name = "panelFilters";
-            panelFilters.Size = new Size(262, 524);
+            panelFilters.Size = new Size(262, 560);
             panelFilters.TabIndex = 2;
+            // 
+            // lblReportTypeTP
+            // 
+            lblReportTypeTP.AutoSize = true;
+            lblReportTypeTP.Location = new Point(3, 217);
+            lblReportTypeTP.Name = "lblReportTypeTP";
+            lblReportTypeTP.Size = new Size(116, 15);
+            lblReportTypeTP.TabIndex = 22;
+            lblReportTypeTP.Text = "Тип торговой точки";
+            // 
+            // cbReportTypeTP
+            // 
+            cbReportTypeTP.FormattingEnabled = true;
+            cbReportTypeTP.Location = new Point(3, 235);
+            cbReportTypeTP.Name = "cbReportTypeTP";
+            cbReportTypeTP.Size = new Size(250, 23);
+            cbReportTypeTP.TabIndex = 21;
             // 
             // cbReportFilter
             // 
@@ -1441,7 +1484,7 @@
             // lblReportTradePoint
             // 
             lblReportTradePoint.AutoSize = true;
-            lblReportTradePoint.Location = new Point(3, 207);
+            lblReportTradePoint.Location = new Point(3, 261);
             lblReportTradePoint.Name = "lblReportTradePoint";
             lblReportTradePoint.Size = new Size(91, 15);
             lblReportTradePoint.TabIndex = 16;
@@ -1450,7 +1493,7 @@
             // lblReportQuantity
             // 
             lblReportQuantity.AutoSize = true;
-            lblReportQuantity.Location = new Point(0, 477);
+            lblReportQuantity.Location = new Point(0, 513);
             lblReportQuantity.Name = "lblReportQuantity";
             lblReportQuantity.Size = new Size(72, 15);
             lblReportQuantity.TabIndex = 15;
@@ -1459,7 +1502,7 @@
             // lblReportDateTo
             // 
             lblReportDateTo.AutoSize = true;
-            lblReportDateTo.Location = new Point(3, 423);
+            lblReportDateTo.Location = new Point(3, 459);
             lblReportDateTo.Name = "lblReportDateTo";
             lblReportDateTo.Size = new Size(48, 15);
             lblReportDateTo.TabIndex = 14;
@@ -1468,7 +1511,7 @@
             // lblReportDateFrom
             // 
             lblReportDateFrom.AutoSize = true;
-            lblReportDateFrom.Location = new Point(3, 368);
+            lblReportDateFrom.Location = new Point(3, 404);
             lblReportDateFrom.Name = "lblReportDateFrom";
             lblReportDateFrom.Size = new Size(47, 15);
             lblReportDateFrom.TabIndex = 13;
@@ -1477,7 +1520,7 @@
             // lblReportCustomer
             // 
             lblReportCustomer.AutoSize = true;
-            lblReportCustomer.Location = new Point(3, 305);
+            lblReportCustomer.Location = new Point(3, 359);
             lblReportCustomer.Name = "lblReportCustomer";
             lblReportCustomer.Size = new Size(72, 15);
             lblReportCustomer.TabIndex = 12;
@@ -1486,7 +1529,7 @@
             // lblReportSeller
             // 
             lblReportSeller.AutoSize = true;
-            lblReportSeller.Location = new Point(3, 256);
+            lblReportSeller.Location = new Point(3, 310);
             lblReportSeller.Name = "lblReportSeller";
             lblReportSeller.Size = new Size(61, 15);
             lblReportSeller.TabIndex = 11;
@@ -1512,21 +1555,21 @@
             // 
             // numQuantity
             // 
-            numQuantity.Location = new Point(3, 495);
+            numQuantity.Location = new Point(3, 531);
             numQuantity.Name = "numQuantity";
             numQuantity.Size = new Size(250, 23);
             numQuantity.TabIndex = 7;
             // 
             // dtTo
             // 
-            dtTo.Location = new Point(3, 441);
+            dtTo.Location = new Point(3, 477);
             dtTo.Name = "dtTo";
             dtTo.Size = new Size(250, 23);
             dtTo.TabIndex = 6;
             // 
             // dtFrom
             // 
-            dtFrom.Location = new Point(3, 386);
+            dtFrom.Location = new Point(3, 422);
             dtFrom.Name = "dtFrom";
             dtFrom.Size = new Size(250, 23);
             dtFrom.TabIndex = 5;
@@ -1535,7 +1578,7 @@
             // cbCustomer
             // 
             cbCustomer.FormattingEnabled = true;
-            cbCustomer.Location = new Point(3, 323);
+            cbCustomer.Location = new Point(3, 377);
             cbCustomer.Name = "cbCustomer";
             cbCustomer.Size = new Size(250, 23);
             cbCustomer.TabIndex = 4;
@@ -1543,7 +1586,7 @@
             // cbSeller
             // 
             cbSeller.FormattingEnabled = true;
-            cbSeller.Location = new Point(3, 274);
+            cbSeller.Location = new Point(3, 328);
             cbSeller.Name = "cbSeller";
             cbSeller.Size = new Size(250, 23);
             cbSeller.TabIndex = 3;
@@ -1551,10 +1594,11 @@
             // cbTradePoint
             // 
             cbTradePoint.FormattingEnabled = true;
-            cbTradePoint.Location = new Point(3, 225);
+            cbTradePoint.Location = new Point(3, 279);
             cbTradePoint.Name = "cbTradePoint";
             cbTradePoint.Size = new Size(250, 23);
             cbTradePoint.TabIndex = 2;
+            cbTradePoint.SelectedIndexChanged += cbTradePoint_SelectedIndexChanged;
             // 
             // cbSupplier
             // 
@@ -1884,13 +1928,13 @@
         private DateTimePicker dtFrom;
         private DateTimePicker dtTo;
         private NumericUpDown numQuantity;
-        private Label DateRequest;
+        private Label lblRequestDate;
         private Label QuantityProductRequest;
         private Label ProductNameRequest;
         private Label TradePointRequest;
         private Label ProductNameOrder;
         private Label SupplierNameOrder;
-        private Label DateOrder;
+        private Label lblOrderDate;
         private Label PriceOrder;
         private Label QuantityProductOrder;
         private Label lblReport;
@@ -1917,5 +1961,9 @@
         private ComboBox cbReportCategory;
         private ComboBox cbReportFilter;
         private Label lblReportFilter;
+        private Label lblSupplyTradePoint;
+        private ComboBox cbSupplyTradePoint;
+        private Label lblReportTypeTP;
+        private ComboBox cbReportTypeTP;
     }
 }

@@ -168,17 +168,22 @@ namespace TradeIS
             store.Suppliers.Add(new Supplier { Id = 7, Name = "SnackImport" });
             store.Suppliers.Add(new Supplier { Id = 8, Name = "ApplianceWorld" });
 
-            // ---------------- SUPPLIES (ID VERSION) ----------------
-            store.Supplies.Add(new Supply { Id = 1, SupplierId = 1, ProductId = 1, Quantity = 15, Price = 30000, Date = new DateTime(2025, 2, 1) });
-            store.Supplies.Add(new Supply { Id = 2, SupplierId = 2, ProductId = 2, Quantity = 10, Price = 50000, Date = new DateTime(2025, 2, 2) });
-            store.Supplies.Add(new Supply { Id = 3, SupplierId = 8, ProductId = 3, Quantity = 5, Price = 45000, Date = new DateTime(2025, 2, 5) });
-            store.Supplies.Add(new Supply { Id = 4, SupplierId = 3, ProductId = 4, Quantity = 20, Price = 6000, Date = new DateTime(2025, 2, 6) });
-            store.Supplies.Add(new Supply { Id = 5, SupplierId = 3, ProductId = 5, Quantity = 25, Price = 4000, Date = new DateTime(2025, 2, 6) });
-            store.Supplies.Add(new Supply { Id = 6, SupplierId = 4, ProductId = 6, Quantity = 100, Price = 50, Date = new DateTime(2025, 2, 7) });
-            store.Supplies.Add(new Supply { Id = 7, SupplierId = 4, ProductId = 7, Quantity = 80, Price = 70, Date = new DateTime(2025, 2, 7) });
-            store.Supplies.Add(new Supply { Id = 8, SupplierId = 6, ProductId = 8, Quantity = 200, Price = 30, Date = new DateTime(2025, 2, 8) });
-            store.Supplies.Add(new Supply { Id = 9, SupplierId = 7, ProductId = 9, Quantity = 60, Price = 120, Date = new DateTime(2025, 2, 9) });
-            store.Supplies.Add(new Supply { Id = 10, SupplierId = 5, ProductId = 10, Quantity = 120, Price = 90, Date = new DateTime(2025, 2, 10) });
+            // ---------------- SUPPLIES (WITH TRADE POINTS) ----------------
+            store.Supplies.Add(new Supply { Id = 1, TradePointId = 3, SupplierId = 1, ProductId = 1, Quantity = 15, Price = 30000, Date = new DateTime(2025, 2, 1) });
+            store.Supplies.Add(new Supply { Id = 2, TradePointId = 3, SupplierId = 2, ProductId = 2, Quantity = 10, Price = 50000, Date = new DateTime(2025, 2, 2) });
+
+            store.Supplies.Add(new Supply { Id = 3, TradePointId = 3, SupplierId = 8, ProductId = 3, Quantity = 5, Price = 45000, Date = new DateTime(2025, 2, 5) });
+
+            store.Supplies.Add(new Supply { Id = 4, TradePointId = 4, SupplierId = 3, ProductId = 4, Quantity = 20, Price = 6000, Date = new DateTime(2025, 2, 6) });
+            store.Supplies.Add(new Supply { Id = 5, TradePointId = 4, SupplierId = 3, ProductId = 5, Quantity = 25, Price = 4000, Date = new DateTime(2025, 2, 6) });
+
+            store.Supplies.Add(new Supply { Id = 6, TradePointId = 5, SupplierId = 4, ProductId = 6, Quantity = 100, Price = 50, Date = new DateTime(2025, 2, 7) });
+            store.Supplies.Add(new Supply { Id = 7, TradePointId = 5, SupplierId = 4, ProductId = 7, Quantity = 80, Price = 70, Date = new DateTime(2025, 2, 7) });
+
+            store.Supplies.Add(new Supply { Id = 8, TradePointId = 6, SupplierId = 6, ProductId = 8, Quantity = 200, Price = 30, Date = new DateTime(2025, 2, 8) });
+            store.Supplies.Add(new Supply { Id = 9, TradePointId = 7, SupplierId = 7, ProductId = 9, Quantity = 60, Price = 120, Date = new DateTime(2025, 2, 9) });
+
+            store.Supplies.Add(new Supply { Id = 10, TradePointId = 10, SupplierId = 5, ProductId = 10, Quantity = 120, Price = 90, Date = new DateTime(2025, 2, 10) });
 
             // ---------------- SELLERS (ID VERSION) ----------------
             store.Sellers.Add(new Seller { Id = 1, Name = "Иван Петров", TradePointId = 1, Salary = 45000 });
@@ -206,6 +211,117 @@ namespace TradeIS
             store.Sales.Add(new Sale { Id = 4, ProductId = 5, TradePointId = 4, SellerId = 4, CustomerId = 4, Quantity = 2, Price = 6000, Date = new DateTime(2025, 2, 12) });
             store.Sales.Add(new Sale { Id = 5, ProductId = 6, TradePointId = 5, SellerId = 5, CustomerId = null, Quantity = 5, Price = 60, Date = new DateTime(2025, 2, 13) });
 
+            store.Requests.Add(new Request
+            {
+                Id = 1,
+                TradePointId = 3,
+                ProductId = 1,
+                Quantity = 2,
+                Date = new DateTime(2025, 2, 14)
+            });
+
+            store.Requests.Add(new Request
+            {
+                Id = 2,
+                TradePointId = 4,
+                ProductId = 4,
+                Quantity = 5,
+                Date = new DateTime(2025, 2, 14)
+            });
+
+            store.Requests.Add(new Request
+            {
+                Id = 3,
+                TradePointId = 5,
+                ProductId = 6,
+                Quantity = 10,
+                Date = new DateTime(2025, 2, 15)
+            });
+
+            store.Requests.Add(new Request
+            {
+                Id = 4,
+                TradePointId = 3,
+                ProductId = 2,
+                Quantity = 1,
+                Date = new DateTime(2025, 2, 16)
+            });
+
+            store.SupplierOrders.Add(new SupplierOrder
+            {
+                Id = 1,
+                SupplierId = 1,
+                ProductId = 1,
+                Quantity = 2,
+                Price = 31000,
+                Date = new DateTime(2025, 2, 14)
+            });
+
+            store.SupplierOrders.Add(new SupplierOrder
+            {
+                Id = 2,
+                SupplierId = 3,
+                ProductId = 4,
+                Quantity = 5,
+                Price = 6200,
+                Date = new DateTime(2025, 2, 15)
+            });
+
+            store.SupplierOrders.Add(new SupplierOrder
+            {
+                Id = 3,
+                SupplierId = 4,
+                ProductId = 6,
+                Quantity = 10,
+                Price = 55,
+                Date = new DateTime(2025, 2, 16)
+            });
+
+            store.SupplierOrders.Add(new SupplierOrder
+            {
+                Id = 4,
+                SupplierId = 2,
+                ProductId = 2,
+                Quantity = 1,
+                Price = 52000,
+                Date = new DateTime(2025, 2, 17)
+            });
+
+            var stockMap = new Dictionary<(int tpId, int productId), int>();
+
+            foreach (var s in store.Supplies)
+            {
+                var key = (s.TradePointId, s.ProductId);
+
+                if (!stockMap.ContainsKey(key))
+                    stockMap[key] = 0;
+
+                stockMap[key] += s.Quantity;
+            }
+
+            foreach (var sale in store.Sales)
+            {
+                var key = (sale.TradePointId, sale.ProductId);
+
+                if (!stockMap.ContainsKey(key))
+                    stockMap[key] = 0;
+
+                stockMap[key] -= sale.Quantity;
+            }
+
+            int id = 1;
+
+            foreach (var kv in stockMap)
+            {
+                store.Stocks.Add(new Stock
+                {
+                    Id = id++,
+                    TradePointId = kv.Key.tpId,
+                    ProductId = kv.Key.productId,
+                    Quantity = kv.Value,
+                    UpdatedAt = DateTime.Now
+                });
+            }
             return store;
         }
     }
