@@ -78,16 +78,85 @@ namespace TradeIS
             store.TradePoints.Add(new Shop { Id = 10, Name = "Магазин Бытовая техника", Size = 220, Rent = 90000, Utilities = 16000, Counters = 5 });
 
             // ---------------- PRODUCTS ----------------
-            store.Products.Add(new Product { Id = 1, Name = "Телевизор" });
-            store.Products.Add(new Product { Id = 2, Name = "Ноутбук" });
-            store.Products.Add(new Product { Id = 3, Name = "Холодильник" });
-            store.Products.Add(new Product { Id = 4, Name = "Куртка" });
-            store.Products.Add(new Product { Id = 5, Name = "Джинсы" });
-            store.Products.Add(new Product { Id = 6, Name = "Хлеб" });
-            store.Products.Add(new Product { Id = 7, Name = "Молоко" });
-            store.Products.Add(new Product { Id = 8, Name = "Газета" });
-            store.Products.Add(new Product { Id = 9, Name = "Чипсы" });
-            store.Products.Add(new Product { Id = 10, Name = "Яблоки" });
+            store.Products.Add(new Product
+            {
+                Id = 1,
+                Name = "Телевизор",
+                Category = "Электроника",
+                Unit = "шт"
+            });
+
+            store.Products.Add(new Product
+            {
+                Id = 2,
+                Name = "Ноутбук",
+                Category = "Электроника",
+                Unit = "шт"
+            });
+
+            store.Products.Add(new Product
+            {
+                Id = 3,
+                Name = "Холодильник",
+                Category = "Бытовая техника",
+                Unit = "шт"
+            });
+
+            store.Products.Add(new Product
+            {
+                Id = 4,
+                Name = "Куртка",
+                Category = "Одежда",
+                Unit = "шт"
+            });
+
+            store.Products.Add(new Product
+            {
+                Id = 5,
+                Name = "Джинсы",
+                Category = "Одежда",
+                Unit = "шт"
+            });
+
+            store.Products.Add(new Product
+            {
+                Id = 6,
+                Name = "Хлеб",
+                Category = "Продукты",
+                Unit = "шт"
+            });
+
+            store.Products.Add(new Product
+            {
+                Id = 7,
+                Name = "Молоко",
+                Category = "Продукты",
+                Unit = "л"
+            });
+
+            store.Products.Add(new Product
+            {
+                Id = 8,
+                Name = "Газета",
+                Category = "Печатная продукция",
+                Unit = "шт"
+            });
+
+            store.Products.Add(new Product
+            {
+                Id = 9,
+                Name = "Чипсы",
+                Category = "Снэки",
+                Unit = "шт"
+            });
+
+            store.Products.Add(new Product
+            {
+                Id = 10,
+                Name = "Яблоки",
+                Category = "Фрукты",
+                Unit = "кг"
+            });
 
             // ---------------- SUPPLIERS ----------------
             store.Suppliers.Add(new Supplier { Id = 1, Name = "TechSupply" });

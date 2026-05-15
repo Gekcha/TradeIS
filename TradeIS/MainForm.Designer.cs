@@ -1410,7 +1410,7 @@
             cbReportFilter.Name = "cbReportFilter";
             cbReportFilter.Size = new Size(250, 23);
             cbReportFilter.TabIndex = 20;
-            cbReportFilter.SelectedIndexChanged += cbReportFilter_SelectedIndexChanged_1;
+            cbReportFilter.SelectedIndexChanged += cbReportFilter_SelectedIndexChanged;
             // 
             // lblReportFilter
             // 

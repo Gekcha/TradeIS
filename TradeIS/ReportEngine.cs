@@ -13,22 +13,17 @@ public class ReportEngine
         _storage = storage;
     }
 
-    // =========================
-    // 1. ПОСТАВЩИКИ ТОВАРА
-    // =========================
     public DataTable GetSuppliersByProduct(
-    int? supplierId,
-    int? productId,
+    int productId,
+    int minQuantity,
     DateTime? from,
     DateTime? to)
     {
         var table = new DataTable();
 
-        table.Columns.Add("Поставщик");
-        table.Columns.Add("Товар");
+        table.Columns.Add("Поставщик", typeof(string));
+        table.Columns.Add("Товар", typeof(string));
         table.Columns.Add("Количество", typeof(int));
-        table.Columns.Add("Цена", typeof(double));
-        table.Columns.Add("Дата", typeof(DateTime));
 
         var query = Program.Store.Supplies.AsEnumerable();
 
@@ -38,25 +33,95 @@ public class ReportEngine
         if (to.HasValue)
             query = query.Where(x => x.Date <= to.Value);
 
-        if (supplierId.HasValue)
-            query = query.Where(x => x.SupplierId == supplierId.Value);
+        query = query.Where(x => x.ProductId == productId);
 
-        if (productId.HasValue)
-            query = query.Where(x => x.ProductId == productId.Value);
+        var grouped = query
+            .GroupBy(x => x.SupplierId)
+            .Select(g => new
+            {
+                SupplierId = g.Key,
+                TotalQuantity = g.Sum(x => x.Quantity),
+                ProductId = productId
+            })
+            .Where(x => x.TotalQuantity >= minQuantity);
 
-        foreach (var s in query)
+        foreach (var g in grouped)
         {
             var supplier = Program.Store.Suppliers
-                .FirstOrDefault(x => x.Id == s.SupplierId)?.Name ?? "N/A";
+                .FirstOrDefault(s => s.Id == g.SupplierId);
 
             var product = Program.Store.Products
-                .FirstOrDefault(x => x.Id == s.ProductId)?.Name ?? "N/A";
+                .FirstOrDefault(p => p.Id == productId);
 
-            table.Rows.Add(supplier, product, s.Quantity, s.Price, s.Date);
+            if (supplier == null || product == null)
+                continue;
+
+            table.Rows.Add(
+                supplier.Name,
+                product.Name,
+                g.TotalQuantity
+            );
         }
 
         return table;
     }
+
+    public DataTable GetSuppliersByCategory(
+    string category,
+    int minQuantity,
+    DateTime? from,
+    DateTime? to)
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Поставщик", typeof(string));
+        table.Columns.Add("Категория", typeof(string));
+        table.Columns.Add("Количество", typeof(int));
+
+        var query = Program.Store.Supplies.AsEnumerable();
+
+        if (from.HasValue)
+            query = query.Where(x => x.Date >= from.Value);
+
+        if (to.HasValue)
+            query = query.Where(x => x.Date <= to.Value);
+
+        query = query.Where(x =>
+        {
+            var product = Program.Store.Products
+                .FirstOrDefault(p => p.Id == x.ProductId);
+
+            return product != null && product.Category == category;
+        });
+
+        var grouped = query
+            .GroupBy(x => x.SupplierId)
+            .Select(g => new
+            {
+                SupplierId = g.Key,
+                TotalQuantity = g.Sum(x => x.Quantity),
+                Category = category
+            })
+            .Where(x => x.TotalQuantity >= minQuantity);
+
+        foreach (var g in grouped)
+        {
+            var supplier = Program.Store.Suppliers
+                .FirstOrDefault(s => s.Id == g.SupplierId);
+
+            if (supplier == null)
+                continue;
+
+            table.Rows.Add(
+                supplier.Name,
+                category,
+                g.TotalQuantity
+            );
+        }
+
+        return table;
+    }
+
 
     // =========================
     // 2. ПОКУПАТЕЛИ
