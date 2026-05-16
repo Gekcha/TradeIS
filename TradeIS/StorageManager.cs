@@ -66,16 +66,134 @@ namespace TradeIS
             var store = new DataStorage();
 
             // ---------------- TRADE POINTS ----------------
-            store.TradePoints.Add(new DepartmentStore { Id = 1, Name = "Универмаг Центр", Size = 1200, Rent = 300000, Utilities = 50000, Counters = 20 });
-            store.TradePoints.Add(new DepartmentStore { Id = 2, Name = "Универмаг Север", Size = 900, Rent = 250000, Utilities = 42000, Counters = 15 });
-            store.TradePoints.Add(new Shop { Id = 3, Name = "Магазин Электроника", Size = 200, Rent = 80000, Utilities = 15000, Counters = 4 });
-            store.TradePoints.Add(new Shop { Id = 4, Name = "Магазин Одежда", Size = 150, Rent = 70000, Utilities = 12000, Counters = 3 });
-            store.TradePoints.Add(new Shop { Id = 5, Name = "Магазин Продукты", Size = 180, Rent = 75000, Utilities = 14000, Counters = 4 });
-            store.TradePoints.Add(new Kiosk { Id = 6, Name = "Киоск Газеты", Size = 20, Rent = 15000, Utilities = 2000, Counters = 1 });
-            store.TradePoints.Add(new Kiosk { Id = 7, Name = "Киоск Снэки", Size = 25, Rent = 17000, Utilities = 2500, Counters = 1 });
-            store.TradePoints.Add(new Stall { Id = 8, Name = "Лоток Фрукты", Size = 10, Rent = 10000, Utilities = 1000, Counters = 1 });
-            store.TradePoints.Add(new Stall { Id = 9, Name = "Лоток Овощи", Size = 12, Rent = 11000, Utilities = 1000, Counters = 1 });
-            store.TradePoints.Add(new Shop { Id = 10, Name = "Магазин Бытовая техника", Size = 220, Rent = 90000, Utilities = 16000, Counters = 5 });
+            store.TradePoints.Add(new DepartmentStore
+            {
+                Id = 1,
+                Name = "Универмаг Центр",
+                Size = 1200,
+                Rent = 300000,
+                Utilities = 50000,
+                Counters = 20,
+                Halls = new List<Hall>
+    {
+        new Hall { Id = 1, Name = "Зал 1" },
+        new Hall { Id = 2, Name = "Зал 2" },
+        new Hall { Id = 3, Name = "Зал 3" }
+    }
+            });
+
+            store.TradePoints.Add(new DepartmentStore
+            {
+                Id = 2,
+                Name = "Универмаг Север",
+                Size = 900,
+                Rent = 250000,
+                Utilities = 42000,
+                Counters = 15,
+                Halls = new List<Hall>
+    {
+        new Hall { Id = 1, Name = "Зал 1" },
+        new Hall { Id = 2, Name = "Зал 2" }
+    }
+            });
+
+            store.TradePoints.Add(new Shop
+            {
+                Id = 3,
+                Name = "Магазин Электроника",
+                Size = 200,
+                Rent = 80000,
+                Utilities = 15000,
+                Counters = 4,
+                Halls = new List<Hall>
+    {
+        new Hall { Id = 1, Name = "Зал 1" }
+    }
+            });
+
+            store.TradePoints.Add(new Shop
+            {
+                Id = 4,
+                Name = "Магазин Одежда",
+                Size = 150,
+                Rent = 70000,
+                Utilities = 12000,
+                Counters = 3,
+                Halls = new List<Hall>
+    {
+        new Hall { Id = 1, Name = "Зал 1" },
+        new Hall { Id = 2, Name = "Зал 2" }
+    }
+            });
+
+            store.TradePoints.Add(new Shop
+            {
+                Id = 5,
+                Name = "Магазин Продукты",
+                Size = 180,
+                Rent = 75000,
+                Utilities = 14000,
+                Counters = 4,
+                Halls = new List<Hall>
+    {
+        new Hall { Id = 1, Name = "Зал 1" }
+    }
+            });
+
+            store.TradePoints.Add(new Shop
+            {
+                Id = 6,
+                Name = "Магазин Бытовая техника",
+                Size = 220,
+                Rent = 90000,
+                Utilities = 16000,
+                Counters = 5,
+                Halls = new List<Hall>
+    {
+        new Hall { Id = 1, Name = "Зал 1" },
+        new Hall { Id = 2, Name = "Зал 2" }
+    }
+            });
+
+            store.TradePoints.Add(new Kiosk
+            {
+                Id = 7,
+                Name = "Киоск Газеты",
+                Size = 20,
+                Rent = 15000,
+                Utilities = 2000,
+                Counters = 1
+            });
+
+            store.TradePoints.Add(new Kiosk
+            {
+                Id = 8,
+                Name = "Киоск Снэки",
+                Size = 25,
+                Rent = 17000,
+                Utilities = 2500,
+                Counters = 1
+            });
+
+            store.TradePoints.Add(new Stall
+            {
+                Id = 9,
+                Name = "Лоток Фрукты",
+                Size = 10,
+                Rent = 10000,
+                Utilities = 1000,
+                Counters = 1
+            });
+
+            store.TradePoints.Add(new Stall
+            {
+                Id = 10,
+                Name = "Лоток Овощи",
+                Size = 12,
+                Rent = 11000,
+                Utilities = 1000,
+                Counters = 1
+            });
 
             // ---------------- PRODUCTS ----------------
             store.Products.Add(new Product

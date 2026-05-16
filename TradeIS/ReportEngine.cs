@@ -705,35 +705,177 @@ public class ReportEngine
     // =========================
     // 9. РЕНТАБЕЛЬНОСТЬ
     // =========================
-    public DataTable GetProfitabilityReport(
-        int tradePointId,
-        DateTime from,
-        DateTime to)
+    public DataTable GetTradePointEfficiencyByArea(
+    int? tradePointId,
+    string type,
+    DateTime from,
+    DateTime to)
     {
-        var sales = _storage.Sales
-            .Where(s => s.TradePointId == tradePointId)
-            .Where(s => s.Date >= from)
-            .Where(s => s.Date <= to);
+        var table = new DataTable();
 
-        var revenue = sales.Sum(s => s.Quantity * s.Price);
+        table.Columns.Add("Точка");
+        table.Columns.Add("Тип");
+        table.Columns.Add("Выручка");
+        table.Columns.Add("Площадь");
+        table.Columns.Add("Продажи на м²");
 
-        var salaries = _storage.Sellers
-            .Where(s => s.TradePointId == tradePointId)
-            .Sum(s => s.Salary);
+        var tradePoints = Program.Store.TradePoints.AsEnumerable();
 
-        var tp = _storage.TradePoints.FirstOrDefault(x => x.Id == tradePointId);
-
-        var result = new[]
+        if (!string.IsNullOrWhiteSpace(type))
         {
-            new
-            {
-                Выручка = revenue,
-                Расходы = salaries + (tp?.Rent ?? 0) + (tp?.Utilities ?? 0),
-                Прибыль = revenue - (salaries + (tp?.Rent ?? 0) + (tp?.Utilities ?? 0))
-            }
-        };
+            tradePoints = tradePoints
+                .Where(t => t.GetType().Name == type);
+        }
 
-        return ToDataTable(result);
+        if (tradePointId.HasValue)
+        {
+            tradePoints = tradePoints
+                .Where(t => t.Id == tradePointId.Value);
+        }
+
+        foreach (var tp in tradePoints)
+        {
+            double revenue = Program.Store.Sales
+                .Where(s =>
+                    s.TradePointId == tp.Id &&
+                    s.Date >= from &&
+                    s.Date <= to)
+                .Sum(s => s.Price * s.Quantity);
+
+            double ratio = 0;
+
+            if (tp.Size > 0)
+                ratio = revenue / tp.Size;
+
+            table.Rows.Add(
+                tp.Name,
+                tp.GetPointType(),
+                revenue,
+                tp.Size,
+                Math.Round(ratio, 2)
+            );
+        }
+
+        return table;
+    }
+
+    public DataTable GetTradePointEfficiencyByHalls(
+     int? tradePointId,
+     string type,
+     DateTime from,
+     DateTime to)
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Точка");
+        table.Columns.Add("Тип");
+        table.Columns.Add("Выручка");
+        table.Columns.Add("Залы");
+        table.Columns.Add("Продажи на зал");
+
+        var tradePoints = Program.Store.TradePoints.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            tradePoints = tradePoints
+                .Where(t => t.GetType().Name == type);
+        }
+
+        if (tradePointId.HasValue)
+        {
+            tradePoints = tradePoints
+                .Where(t => t.Id == tradePointId.Value);
+        }
+
+        foreach (var tp in tradePoints)
+        {
+            int halls = 0;
+
+            if (tp is Shop shop)
+                halls = shop.Halls.Count;
+            if (tp is DepartmentStore dp)
+                halls = dp.Halls.Count;
+            if (tp is Kiosk kiosk)
+                halls = 1;
+            if (tp is Stall stall)
+                halls = 1;
+
+            double revenue = Program.Store.Sales
+                .Where(s =>
+                    s.TradePointId == tp.Id &&
+                    s.Date >= from &&
+                    s.Date <= to)
+                .Sum(s => s.Price * s.Quantity);
+
+            double ratio = 0;
+
+            if (halls > 0)
+                ratio = revenue / halls;
+
+            table.Rows.Add(
+                tp.Name,
+                tp.GetPointType(),
+                revenue,
+                halls,
+                Math.Round(ratio, 2)
+            );
+        }
+
+        return table;
+    }
+
+    public DataTable GetTradePointEfficiencyByCounters(
+    int? tradePointId,
+    string type,
+    DateTime from,
+    DateTime to)
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Точка");
+        table.Columns.Add("Тип");
+        table.Columns.Add("Выручка");
+        table.Columns.Add("Прилавки");
+        table.Columns.Add("Продажи на прилавок");
+
+        var tradePoints = Program.Store.TradePoints.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            tradePoints = tradePoints
+                .Where(t => t.GetType().Name == type);
+        }
+
+        if (tradePointId.HasValue)
+        {
+            tradePoints = tradePoints
+                .Where(t => t.Id == tradePointId.Value);
+        }
+
+        foreach (var tp in tradePoints)
+        {
+            double revenue = Program.Store.Sales
+                .Where(s =>
+                    s.TradePointId == tp.Id &&
+                    s.Date >= from &&
+                    s.Date <= to)
+                .Sum(s => s.Price * s.Quantity);
+
+            double ratio = 0;
+
+            if (tp.Counters > 0)
+                ratio = revenue / tp.Counters;
+
+            table.Rows.Add(
+                tp.Name,
+                tp.GetPointType(),
+                revenue,
+                tp.Counters,
+                Math.Round(ratio, 2)
+            );
+        }
+
+        return table;
     }
 
     // =========================

@@ -30,6 +30,8 @@
         {
             tabMain = new TabControl();
             tabTradePoints = new TabPage();
+            lblHallsCount = new Label();
+            numHalls = new NumericUpDown();
             btnEditTradePoint = new Button();
             btnDeleteTradePoint = new Button();
             lblNumCounters = new Label();
@@ -190,6 +192,7 @@
             dgvResults = new DataGridView();
             tabMain.SuspendLayout();
             tabTradePoints.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)numHalls).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numCounters).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numUtilities).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numRent).BeginInit();
@@ -248,6 +251,8 @@
             // 
             // tabTradePoints
             // 
+            tabTradePoints.Controls.Add(lblHallsCount);
+            tabTradePoints.Controls.Add(numHalls);
             tabTradePoints.Controls.Add(btnEditTradePoint);
             tabTradePoints.Controls.Add(btnDeleteTradePoint);
             tabTradePoints.Controls.Add(lblNumCounters);
@@ -271,6 +276,24 @@
             tabTradePoints.TabIndex = 2;
             tabTradePoints.Text = "Торговые точки";
             tabTradePoints.UseVisualStyleBackColor = true;
+            // 
+            // lblHallsCount
+            // 
+            lblHallsCount.AutoSize = true;
+            lblHallsCount.Location = new Point(20, 440);
+            lblHallsCount.Name = "lblHallsCount";
+            lblHallsCount.Size = new Size(106, 15);
+            lblHallsCount.TabIndex = 17;
+            lblHallsCount.Text = "Количество залов";
+            // 
+            // numHalls
+            // 
+            numHalls.Location = new Point(20, 458);
+            numHalls.Maximum = new decimal(new int[] { 500000, 0, 0, 0 });
+            numHalls.Name = "numHalls";
+            numHalls.Size = new Size(250, 23);
+            numHalls.TabIndex = 16;
+            numHalls.Value = new decimal(new int[] { 1, 0, 0, 0 });
             // 
             // btnEditTradePoint
             // 
@@ -359,30 +382,38 @@
             // numCounters
             // 
             numCounters.Location = new Point(20, 406);
+            numCounters.Maximum = new decimal(new int[] { 500000, 0, 0, 0 });
             numCounters.Name = "numCounters";
             numCounters.Size = new Size(250, 23);
             numCounters.TabIndex = 6;
+            numCounters.Value = new decimal(new int[] { 1, 0, 0, 0 });
             // 
             // numUtilities
             // 
             numUtilities.Location = new Point(20, 355);
+            numUtilities.Maximum = new decimal(new int[] { 500000, 0, 0, 0 });
             numUtilities.Name = "numUtilities";
             numUtilities.Size = new Size(250, 23);
             numUtilities.TabIndex = 5;
+            numUtilities.Value = new decimal(new int[] { 1, 0, 0, 0 });
             // 
             // numRent
             // 
             numRent.Location = new Point(20, 302);
+            numRent.Maximum = new decimal(new int[] { 500000, 0, 0, 0 });
             numRent.Name = "numRent";
             numRent.Size = new Size(250, 23);
             numRent.TabIndex = 4;
+            numRent.Value = new decimal(new int[] { 1, 0, 0, 0 });
             // 
             // numSize
             // 
             numSize.Location = new Point(20, 243);
+            numSize.Maximum = new decimal(new int[] { 500000, 0, 0, 0 });
             numSize.Name = "numSize";
             numSize.Size = new Size(250, 23);
             numSize.TabIndex = 3;
+            numSize.Value = new decimal(new int[] { 1, 0, 0, 0 });
             // 
             // cbType
             // 
@@ -1755,6 +1786,7 @@
             tabMain.ResumeLayout(false);
             tabTradePoints.ResumeLayout(false);
             tabTradePoints.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)numHalls).EndInit();
             ((System.ComponentModel.ISupportInitialize)numCounters).EndInit();
             ((System.ComponentModel.ISupportInitialize)numUtilities).EndInit();
             ((System.ComponentModel.ISupportInitialize)numRent).EndInit();
@@ -1965,5 +1997,7 @@
         private ComboBox cbSupplyTradePoint;
         private Label lblReportTypeTP;
         private ComboBox cbReportTypeTP;
+        private Label lblHallsCount;
+        private NumericUpDown numHalls;
     }
 }

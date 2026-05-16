@@ -61,6 +61,11 @@ namespace TradeIS
             dgvReport.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvReport.AllowUserToAddRows = false;
             dgvReport.ReadOnly = true;
+
+            dgvTradePoints.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvTradePoints.RowHeadersVisible = false;
+            dgvTradePoints.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvTradePoints.MultiSelect = false;
         }
         private void SetGlobalNumericLimits(Control parent)
         {
@@ -287,6 +292,11 @@ namespace TradeIS
                 else
                     cbReportTypeTP.Items.Add(type); // fallback
             }
+
+            if (cbReportTypeTP.Items.Count > 0)
+            {
+                cbReportTypeTP.SelectedIndex = 0;
+            }
         }
 
         private void UpdateCombo(ComboBox cb, object data)
@@ -419,8 +429,16 @@ namespace TradeIS
             numUtilities.Value = (decimal)point.Utilities;
             numCounters.Value = point.Counters;
 
+            if (point is Shop shop)
+            {
+                numHalls.Value = Math.Max(1, shop.Halls.Count);
+            }
+            else
+            {
+                numHalls.Value = 1;
+            }
+            numHalls.Value = point.HallsCount;
             cbType.Text = point.GetPointType();
-
             // Меняем режим кнопок
             btnAddTradePoint.Text = "Сохранить";
             btnDeleteTradePoint.Text = "Отмена";
@@ -504,10 +522,11 @@ namespace TradeIS
             _editTradePointId = -1;
 
             tbName.Clear();
-            numSize.Value = 0;
-            numRent.Value = 0;
-            numUtilities.Value = 0;
-            numCounters.Value = 0;
+            numSize.Value = 1;
+            numRent.Value = 1;
+            numUtilities.Value = 1;
+            numCounters.Value = 1;
+            numHalls.Value = 1;
 
             cbType.SelectedIndex = -1;
 
@@ -521,7 +540,38 @@ namespace TradeIS
             point.Size = (double)numSize.Value;
             point.Rent = (double)numRent.Value;
             point.Utilities = (double)numUtilities.Value;
-            point.Counters = (int)numCounters.Value; // Здесь будет 1 для киосков благодаря нашей "заморозке"
+            point.Counters = (int)numCounters.Value;
+
+            // если у тебя есть NumericUpDown для залов
+            if (point is Shop shop)
+            {
+                int count = Math.Max(1, (int)numHalls.Value);
+
+                shop.Halls = new List<Hall>();
+
+                for (int i = 1; i <= count; i++)
+                {
+                    shop.Halls.Add(new Hall
+                    {
+                        Id = i,
+                        Name = $"Зал {i}"
+                    });
+                }
+            }
+
+            if (point is DepartmentStore ds)
+            {
+                ds.Halls.Clear();
+
+                for (int i = 0; i < (int)numHalls.Value; i++)
+                {
+                    ds.Halls.Add(new Hall
+                    {
+                        Id = i + 1,
+                        Name = $"Зал {i + 1}"
+                    });
+                }
+            }
         }
         private TradePoint CreatePointByType(string typeName)
         {
@@ -536,31 +586,34 @@ namespace TradeIS
         }
         private void RefreshTradePointsGrid()
         {
-            var data = Program.Store.TradePoints.Select(t => new
-            {
-                t.Id,
-                t.Name,
-                t.Size,
-                t.Rent,
-                t.Utilities,
-                t.Counters,
-                Type = t.GetPointType()
-            }).ToList();
+            var data = Program.Store.TradePoints
+                .Select(t => new
+                {
+                    t.Id,
+                    t.Name,
+                    Type = t.GetPointType(),
+                    t.Size,
+                    t.Rent,
+                    t.Utilities,
+                    t.Counters,
+                    Halls = t.HallsCount
+                })
+                .ToList();
 
-            BindGrid(dgvTradePoints, data);
+            dgvTradePoints.DataSource = data;
 
             SetRussianHeaders(dgvTradePoints, new Dictionary<string, string>
             {
                 ["Id"] = "ID",
                 ["Name"] = "Название",
+                ["Type"] = "Тип",
                 ["Size"] = "Площадь",
                 ["Rent"] = "Аренда",
-                ["Utilities"] = "Коммунальные услуги",
+                ["Utilities"] = "Коммунальные",
                 ["Counters"] = "Прилавки",
-                ["Type"] = "Тип"
+                ["Halls"] = "Залы"
             });
         }
-
         #endregion
 
         #region Products (Товары)
@@ -2086,16 +2139,40 @@ namespace TradeIS
                         }
 
                     case "Эффективность торговых точек":
-                    case "Рентабельность точки":
                         {
-                            var tpId = Program.Store.TradePoints
-                                .FirstOrDefault(t => t.Name == tpName)?.Id ?? 0;
+                            string type = GetTradePointTypeInternal(
+                                cbReportTypeTP.Text);
 
-                            result = _reportEngine.GetProfitabilityReport(
-                                tpId,
-                                from.Value,
-                                to.Value
-                            );
+                            string mode = cbReportFilter.Text;
+
+                            if (mode == "По площади")
+                            {
+                                result =
+                                    _reportEngine.GetTradePointEfficiencyByArea(
+                                        null,
+                                        type,
+                                        from.Value,
+                                        to.Value);
+                            }
+                            else if (mode == "По залам")
+                            {
+                                result =
+                                    _reportEngine.GetTradePointEfficiencyByHalls(
+                                        null,
+                                        type,
+                                        from.Value,
+                                        to.Value);
+                            }
+                            else
+                            {
+                                result =
+                                    _reportEngine.GetTradePointEfficiencyByCounters(
+                                        null,
+                                        type,
+                                        from.Value,
+                                        to.Value);
+                            }
+
                             break;
                         }
 
@@ -2202,6 +2279,17 @@ namespace TradeIS
                         lblReportProduct, cbProduct,
                         lblReportDateFrom, dtFrom,
                         lblReportDateTo, dtTo);
+                    break;
+                case "Эффективность торговых точек":
+
+                    ShowFilters(
+                        lblReportFilter, cbReportFilter,
+                        lblReportTypeTP, cbReportTypeTP,
+                        lblReportDateFrom, dtFrom,
+                        lblReportDateTo, dtTo);
+
+                    LoadReportFilter(report);
+
                     break;
             }
         }
@@ -2527,7 +2615,15 @@ namespace TradeIS
                     cbReportFilter.Items.Add("По типу торговой точки");
                     cbReportFilter.Items.Add("По конкретной торговой точке");
                     break;
+                case "Эффективность торговых точек":
 
+                    cbReportFilter.Items.Add("По площади");
+                    cbReportFilter.Items.Add("По залам");
+                    cbReportFilter.Items.Add("По прилавкам");
+
+                    cbReportFilter.SelectedIndex = 0;
+
+                    break;
                 default:
                     cbReportFilter.Visible = false;
                     lblReportFilter.Visible = false;

@@ -17,6 +17,8 @@ public abstract class TradePoint
     [DisplayName("Коммунальные услуги")]
     public double Utilities { get; set; }
 
+    [DisplayName("Количество залов")]
+    public virtual int HallsCount => 1;
     [DisplayName("Прилавки")]
     public int Counters { get; set; }
     public abstract string Type { get; }
