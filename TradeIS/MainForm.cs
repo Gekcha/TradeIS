@@ -48,6 +48,9 @@ namespace TradeIS
             LoadTradePointTypes();
             LoadCategories();
             LoadTradePointsForReports();
+            LoadTradePoints();
+            LoadProductCategory();
+            LoadSeller();
 
             dtpSaleDate.MaxDate = DateTime.Today;
             dtpSupplyDate.MaxDate = DateTime.Today;
@@ -141,11 +144,12 @@ namespace TradeIS
                 "Зарплата продавцов",
                 "Поставки поставщика",
                 "Эффективность торговых точек",
-                "Поставки по номеру заказа",
-                "Покупатели товара по точкам",
-                "Активные покупатели",
-                "Товарооборот",
-                "Рентабельность точки"
+                "Рентабельность торговой точки",
+                "Поставка по номеру заказа",
+                "Покупатели указанного товара по точкам",
+                "Наиболее активные покупатели",
+                "Товарооборот"
+               
             });
 
             cbReportFilter.Items.Add("По товару");
@@ -1328,7 +1332,7 @@ namespace TradeIS
             // Проверка клиента только если требуется
             var tp = Program.Store.TradePoints.FirstOrDefault(x => x.Id == tradePointId);
 
-            if (tp != null && (tp.GetPointType() == "Kiosk" || tp.GetPointType() == "Stall"))
+            if (tp != null && (tp.GetPointType() == "Универмаг" || tp.GetPointType() == "Магазин"))
             {
                 if (cbSaleCustomer.SelectedValue == null)
                 {
@@ -1338,6 +1342,7 @@ namespace TradeIS
 
                 sale.CustomerId = (int)cbSaleCustomer.SelectedValue;
             }
+             
 
             AddItem(Program.Store.Sales, sale, dgvSales);
 
@@ -1897,7 +1902,6 @@ namespace TradeIS
                         }
 
                     case "Покупатели товара":
-                    case "Покупатели товара по точкам":
                         {
                             int minQuantity = (int)numQuantity.Value;
 
@@ -2175,17 +2179,141 @@ namespace TradeIS
 
                             break;
                         }
+                    case "Рентабельность торговой точки":
+                        {
+                            int? tpId = null;
+
+                            if (!string.IsNullOrWhiteSpace(cbTradePoint.Text))
+                            {
+                                tpId = Program.Store.TradePoints
+                                    .FirstOrDefault(t => t.Name == cbTradePoint.Text)?.Id;
+                            }
+
+                            result = _reportEngine.GetTradePointProfitability(
+                                tpId,
+                                from.Value,
+                                to.Value
+                            );
+
+                            break;
+                        }
+
+                    case "Поставка по номеру заказа":
+                        {
+                            int orderId = (int)numQuantity.Value;
+
+                            result = _reportEngine.GetSupplyByOrderNumber(orderId);
+
+                            break;
+                        }
+
+                    case "Покупатели указанного товара по точкам":
+                        {
+                            var productId = Program.Store.Products
+                                .FirstOrDefault(p => p.Name == productName)?.Id ?? 0;
+
+                            string mode = cbReportFilter.Text;
+
+                            if (mode == "По типу торговой точки")
+                            {
+                                string type = GetTradePointTypeInternal(
+                                    cbReportTypeTP.Text);
+
+                                result = _reportEngine.GetBuyersByProductType(
+                                    productId,
+                                    type,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+                            else if (mode == "По конкретной торговой точке")
+                            {
+                                int tpId = Program.Store.TradePoints
+                                    .FirstOrDefault(t => t.Name == cbTradePoint.Text)?.Id ?? 0;
+
+                                result = _reportEngine.GetBuyersByProductPoint(
+                                    productId,
+                                    tpId,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+                            else
+                            {
+                                result = _reportEngine.GetBuyersByProductAll(
+                                    productId,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+
+                            break;
+                        }
+
+                    case "Наиболее активные покупатели":
+                        {
+                            string mode = cbReportFilter.Text;
+
+                            if (mode == "По типу торговой точки")
+                            {
+                                string type = GetTradePointTypeInternal(
+                                    cbReportTypeTP.Text);
+
+                                result = _reportEngine.GetMostActiveCustomersByType(
+                                    type,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+                            else if (mode == "По конкретной торговой точке")
+                            {
+                                int tpId = Program.Store.TradePoints
+                                    .FirstOrDefault(t => t.Name == cbTradePoint.Text)?.Id ?? 0;
+
+                                result = _reportEngine.GetMostActiveCustomersByPoint(
+                                    tpId,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+                            else
+                            {
+                                result = _reportEngine.GetMostActiveCustomersAll(
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+
+                            break;
+                        }
 
                     case "Товарооборот":
                         {
-                            var tpId = Program.Store.TradePoints
-                                .FirstOrDefault(t => t.Name == tpName)?.Id;
+                            string mode = cbReportFilter.Text;
 
-                            result = _reportEngine.GetTradeTurnover(
-                                from.Value,
-                                to.Value,
-                                tpId
-                            );
+                            if (mode == "По типу торговой точки")
+                            {
+                                string type = GetTradePointTypeInternal(
+                                    cbReportTypeTP.Text);
+
+                                result = _reportEngine.GetTradePointGroupTurnover(
+                                    type,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+                            else if (mode == "По конкретной торговой точке")
+                            {
+                                int tpId = Program.Store.TradePoints
+                                    .FirstOrDefault(t => t.Name == cbTradePoint.Text)?.Id ?? 0;
+
+                                result = _reportEngine.GetTradePointTurnover(
+                                    tpId,
+                                    from.Value,
+                                    to.Value
+                                );
+                            }
+
                             break;
                         }
                 }
@@ -2196,29 +2324,6 @@ namespace TradeIS
             catch (Exception ex)
             {
                 MessageBox.Show($"Ошибка: {ex.Message}");
-            }
-        }
-        private void UpdateReportFilter(string reportName)
-        {
-            cbReportFilter.Items.Clear();
-
-            switch (reportName)
-            {
-                case "Поставщики товара":
-                case "Покупатели товара":
-                    cbReportFilter.Items.Add("По виду товара");
-                    cbReportFilter.Items.Add("По товару");
-                    cbReportFilter.SelectedIndex = 0;
-                    cbReportCategory.SelectedIndex = 0;
-                    break;
-
-                case "Цены товара по точкам":
-                    cbReportFilter.Items.Add("Все торговые точки");
-                    cbReportFilter.Items.Add("По типу торговой точки");
-                    cbReportFilter.Items.Add("По конкретной торговой точке");
-                    cbReportFilter.SelectedIndex = 0;
-                    cbReportCategory.SelectedIndex = 0;
-                    break;
             }
         }
         private void cbReport_SelectedIndexChanged(object sender, EventArgs e)
@@ -2249,8 +2354,6 @@ namespace TradeIS
                     ShowFilters(
                         lblReportFilter, cbReportFilter,
                         lblReportProduct, cbProduct,
-                        lblReportTypeTP, cbReportTypeTP,
-                        lblReportTradePoint, cbTradePoint,
                         lblReportDateFrom, dtFrom,
                         lblReportDateTo, dtTo);
                     break;
@@ -2291,6 +2394,40 @@ namespace TradeIS
                     LoadReportFilter(report);
 
                     break;
+                case "Рентабельность торговой точки":
+
+                    ShowFilters(
+                        lblReportTradePoint, cbTradePoint,
+                        lblReportDateFrom, dtFrom,
+                        lblReportDateTo, dtTo);
+
+                    LoadTradePoints();
+
+                    break;
+                case "Поставка по номеру заказа":
+
+                    ShowFilters(
+                        lblReportQuantity, numQuantity);
+                    lblReportQuantity.Text = "Номер заказа";
+                    break;
+                case "Покупатели указанного товара по точкам":
+
+                    ShowFilters(
+                        lblReportFilter, cbReportFilter,
+                        lblReportProduct, cbProduct,
+                        lblReportDateFrom, dtFrom,
+                        lblReportDateTo, dtTo);
+
+                    break;
+                case "Товарооборот":
+
+                    ShowFilters(
+                        lblReportFilter, cbReportFilter,
+                        lblReportTypeTP, cbReportTypeTP,
+                        lblReportDateFrom, dtFrom,
+                        lblReportDateTo, dtTo);
+
+                    break;
             }
         }
         private void cbType_SelectedIndexChanged(object sender, EventArgs e)
@@ -2318,6 +2455,7 @@ namespace TradeIS
         {
             string report = cbReport.SelectedItem?.ToString();
             string mode = cbReportFilter.Text;
+            LoadTradePoints();
 
             if (report == "Поставщики товара" || report == "Покупатели товара")
             {
@@ -2338,7 +2476,7 @@ namespace TradeIS
                 return;
             }
 
-            if (report == "Цены товара по точкам" || report == "Объём продаж товара")
+            if (report == "Цены товара по точкам" || report == "Объём продаж товара" || report == "Товарооборот")
             {
                 lblReportTypeTP.Visible = (mode == "По типу торговой точки");
                 cbReportTypeTP.Visible = (mode == "По типу торговой точки");
@@ -2379,6 +2517,53 @@ namespace TradeIS
 
                 return;
             }
+            if (report == "Покупатели указанного товара по точкам")
+            {
+                mode = cbReportFilter.Text;
+
+                lblReportTradePoint.Visible = false;
+                cbTradePoint.Visible = false;
+
+                lblReportTypeTP.Visible = false;
+                cbReportTypeTP.Visible = false;
+
+                if (mode == "По типу торговой точки")
+                {
+                    lblReportTypeTP.Visible = true;
+                    cbReportTypeTP.Visible = true;
+                }
+                else if (mode == "По конкретной торговой точке")
+                {
+                    lblReportTradePoint.Visible = true;
+                    cbTradePoint.Visible = true;
+                }
+            }
+
+            if (report == "Наиболее активные покупатели")
+            {
+                mode = cbReportFilter.Text;
+
+                lblReportTradePoint.Visible = false;
+                cbTradePoint.Visible = false;
+
+                lblReportTypeTP.Visible = false;
+                cbReportTypeTP.Visible = false;
+
+                if (mode == "По типу торговой точки")
+                {
+                    lblReportTypeTP.Visible = true;
+                    cbReportTypeTP.Visible = true;
+                }
+                else if (mode == "По конкретной торговой точке")
+                {
+                    lblReportTradePoint.Visible = true;
+                    cbTradePoint.Visible = true;
+                }
+
+                return;
+            }
+
+
         }
         private void cbSaleTradePoint_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -2610,10 +2795,16 @@ namespace TradeIS
                 case "Объём продаж товара":
                 case "Выработка продавцов":
                 case "Зарплата продавцов":
-                case "Товарооборот":
+                case "Покупатели указанного товара по точкам":
+                case "Наиболее активные покупатели":
                     cbReportFilter.Items.Add("Все торговые точки");
                     cbReportFilter.Items.Add("По типу торговой точки");
                     cbReportFilter.Items.Add("По конкретной торговой точке");
+                    break;
+                case "Товарооборот":
+                    cbReportFilter.Items.Add("По типу торговой точки");
+                    cbReportFilter.Items.Add("По конкретной торговой точке");
+                    cbReportFilter.SelectedIndex = 0;
                     break;
                 case "Эффективность торговых точек":
 
@@ -2643,6 +2834,22 @@ namespace TradeIS
 
             if (cbSaleTradePoint.Items.Count > 0)
                 cbSaleTradePoint.SelectedIndex = 0;
+        }
+
+        private void LoadTradePoints()
+        {
+            if (cbTradePoint.Items.Count > 0)
+                cbTradePoint.SelectedIndex = 0;
+        }
+        private void LoadProductCategory()
+        {
+            if (cbReportCategory.Items.Count > 0)
+                cbReportCategory.SelectedIndex = 0;
+        }
+        private void LoadSeller()
+        {
+            if (cbSeller.Items.Count > 0)
+                cbSeller.SelectedIndex = 0;
         }
 
         private void LoadSellersForSelectedTradePoint(int tradePointId)

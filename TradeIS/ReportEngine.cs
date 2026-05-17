@@ -902,6 +902,371 @@ public class ReportEngine
     }
 
     // =========================
+    // 11. Рентабельность ТТ
+    // =========================
+    public DataTable GetTradePointProfitability(
+    int? tradePointId,
+    DateTime from,
+    DateTime to)
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Точка");
+        table.Columns.Add("Тип");
+        table.Columns.Add("Выручка");
+        table.Columns.Add("Зарплаты");
+        table.Columns.Add("Аренда");
+        table.Columns.Add("Коммунальные");
+        table.Columns.Add("Расходы");
+        table.Columns.Add("Рентабельность");
+
+        var tradePoints = Program.Store.TradePoints.AsEnumerable();
+
+        if (tradePointId.HasValue)
+        {
+            tradePoints = tradePoints
+                .Where(t => t.Id == tradePointId.Value);
+        }
+
+        foreach (var tp in tradePoints)
+        {
+            double revenue = Program.Store.Sales
+                .Where(s =>
+                    s.TradePointId == tp.Id &&
+                    s.Date >= from &&
+                    s.Date <= to)
+                .Sum(s => s.Price * s.Quantity);
+
+            double salaries = Program.Store.Sellers
+                .Where(s => s.TradePointId == tp.Id)
+                .Sum(s => s.Salary);
+
+            double expenses =
+                salaries +
+                tp.Rent +
+                tp.Utilities;
+
+            double profitability = 0;
+
+            if (expenses > 0)
+            {
+                profitability = revenue / expenses;
+            }
+
+            table.Rows.Add(
+                tp.Name,
+                tp.GetPointType(),
+                Math.Round(revenue, 2),
+                Math.Round(salaries, 2),
+                Math.Round(tp.Rent, 2),
+                Math.Round(tp.Utilities, 2),
+                Math.Round(expenses, 2),
+                Math.Round(profitability, 2)
+            );
+        }
+
+        return table;
+    }
+
+    // =========================
+    // 11. Поставка по номеру заказа
+    // =========================
+    public DataTable GetSupplyByOrderNumber(int supplyId)
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Номер");
+        table.Columns.Add("Торговая точка");
+        table.Columns.Add("Поставщик");
+        table.Columns.Add("Товар");
+        table.Columns.Add("Количество");
+        table.Columns.Add("Цена");
+        table.Columns.Add("Дата");
+
+        var supply = Program.Store.Supplies
+            .FirstOrDefault(s => s.Id == supplyId);
+
+        if (supply == null)
+            return table;
+
+        var tradePoint = Program.Store.TradePoints
+            .FirstOrDefault(t => t.Id == supply.TradePointId);
+
+        var supplier = Program.Store.Suppliers
+            .FirstOrDefault(s => s.Id == supply.SupplierId);
+
+        var product = Program.Store.Products
+            .FirstOrDefault(p => p.Id == supply.ProductId);
+
+        table.Rows.Add(
+            supply.Id,
+            tradePoint?.Name,
+            supplier?.Name,
+            product?.Name,
+            supply.Quantity,
+            supply.Price,
+            supply.Date.ToShortDateString()
+        );
+
+        return table;
+    }
+
+    public DataTable GetBuyersByProductAll(
+    int productId,
+    DateTime from,
+    DateTime to)
+    {
+        var table = CreateBuyersTable();
+
+        var sales = Program.Store.Sales
+            .Where(s =>
+                s.ProductId == productId &&
+                s.Date >= from &&
+                s.Date <= to);
+
+        FillBuyersTable(table, sales);
+
+        return table;
+    }
+
+    public DataTable GetBuyersByProductType(
+    int productId,
+    string type,
+    DateTime from,
+    DateTime to)
+    {
+        var table = CreateBuyersTable();
+
+        var tradePointIds = Program.Store.TradePoints
+            .Where(t => t.GetType().Name == type)
+            .Select(t => t.Id)
+            .ToList();
+
+        var sales = Program.Store.Sales
+            .Where(s =>
+                s.ProductId == productId &&
+                tradePointIds.Contains(s.TradePointId) &&
+                s.Date >= from &&
+                s.Date <= to);
+
+        FillBuyersTable(table, sales);
+
+        return table;
+    }
+
+    public DataTable GetBuyersByProductPoint(
+    int productId,
+    int tradePointId,
+    DateTime from,
+    DateTime to)
+    {
+        var table = CreateBuyersTable();
+
+        var sales = Program.Store.Sales
+            .Where(s =>
+                s.ProductId == productId &&
+                s.TradePointId == tradePointId &&
+                s.Date >= from &&
+                s.Date <= to);
+
+        FillBuyersTable(table, sales);
+
+        return table;
+    }
+
+    private DataTable CreateBuyersTable()
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Покупатель");
+        table.Columns.Add("Товар");
+        table.Columns.Add("Точка");
+        table.Columns.Add("Тип");
+        table.Columns.Add("Количество");
+        table.Columns.Add("Сумма");
+        table.Columns.Add("Дата");
+
+        return table;
+    }
+
+    private void FillBuyersTable(
+    DataTable table,
+    IEnumerable<Sale> sales)
+    {
+        foreach (var sale in sales)
+        {
+            var customer = Program.Store.Customers
+                .FirstOrDefault(c => c.Id == sale.CustomerId);
+
+            var product = Program.Store.Products
+                .FirstOrDefault(p => p.Id == sale.ProductId);
+
+            var tradePoint = Program.Store.TradePoints
+                .FirstOrDefault(t => t.Id == sale.TradePointId);
+
+            table.Rows.Add(
+                customer?.Name ?? "Не указан",
+                product?.Name,
+                tradePoint?.Name,
+                tradePoint?.GetPointType(),
+                sale.Quantity,
+                sale.Quantity * sale.Price,
+                sale.Date.ToShortDateString()
+            );
+        }
+    }
+
+    public DataTable GetMostActiveCustomersAll(
+    DateTime from,
+    DateTime to)
+    {
+        var sales = Program.Store.Sales
+            .Where(s =>
+                s.CustomerId.HasValue &&
+                s.Date >= from &&
+                s.Date <= to);
+
+        return BuildActiveCustomersTable(sales);
+    }
+
+    public DataTable GetMostActiveCustomersByType(
+    string type,
+    DateTime from,
+    DateTime to)
+    {
+        var tradePointIds = Program.Store.TradePoints
+            .Where(t => t.GetType().Name == type)
+            .Select(t => t.Id)
+            .ToList();
+
+        var sales = Program.Store.Sales
+            .Where(s =>
+                s.CustomerId.HasValue &&
+                tradePointIds.Contains(s.TradePointId) &&
+                s.Date >= from &&
+                s.Date <= to);
+
+        return BuildActiveCustomersTable(sales);
+    }
+
+    public DataTable GetMostActiveCustomersByPoint(
+    int tradePointId,
+    DateTime from,
+    DateTime to)
+    {
+        var sales = Program.Store.Sales
+            .Where(s =>
+                s.CustomerId.HasValue &&
+                s.TradePointId == tradePointId &&
+                s.Date >= from &&
+                s.Date <= to);
+
+        return BuildActiveCustomersTable(sales);
+    }
+
+    private DataTable BuildActiveCustomersTable(
+    IEnumerable<Sale> sales)
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Покупатель");
+        table.Columns.Add("Количество покупок");
+        table.Columns.Add("Общая сумма");
+
+        var grouped = sales
+            .GroupBy(s => s.CustomerId)
+            .Select(g => new
+            {
+                CustomerId = g.Key,
+                Purchases = g.Count(),
+                Total = g.Sum(x => x.Price * x.Quantity)
+            })
+            .OrderByDescending(x => x.Total);
+
+        foreach (var item in grouped)
+        {
+            var customer = Program.Store.Customers
+                .FirstOrDefault(c => c.Id == item.CustomerId);
+
+            table.Rows.Add(
+                customer?.Name,
+                item.Purchases,
+                Math.Round(item.Total, 2)
+            );
+        }
+
+        return table;
+    }
+
+    public DataTable GetTradePointTurnover(
+    int tradePointId,
+    DateTime from,
+    DateTime to)
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Точка");
+        table.Columns.Add("Тип");
+        table.Columns.Add("Товарооборот");
+
+        var tp = Program.Store.TradePoints
+            .FirstOrDefault(t => t.Id == tradePointId);
+
+        if (tp == null)
+            return table;
+
+        double turnover = Program.Store.Sales
+            .Where(s =>
+                s.TradePointId == tradePointId &&
+                s.Date >= from &&
+                s.Date <= to)
+            .Sum(s => s.Price * s.Quantity);
+
+        table.Rows.Add(
+            tp.Name,
+            tp.GetPointType(),
+            Math.Round(turnover, 2)
+        );
+
+        return table;
+    }
+
+    public DataTable GetTradePointGroupTurnover(
+    string type,
+    DateTime from,
+    DateTime to)
+    {
+        var table = new DataTable();
+
+        table.Columns.Add("Тип");
+        table.Columns.Add("Количество точек");
+        table.Columns.Add("Товарооборот");
+
+        var points = Program.Store.TradePoints
+            .Where(t => t.GetType().Name == type)
+            .ToList();
+
+        var ids = points.Select(t => t.Id).ToList();
+
+        double turnover = Program.Store.Sales
+            .Where(s =>
+                ids.Contains(s.TradePointId) &&
+                s.Date >= from &&
+                s.Date <= to)
+            .Sum(s => s.Price * s.Quantity);
+
+        string typeRu = points.FirstOrDefault()?.GetPointType()
+            ?? type;
+
+        table.Rows.Add(
+            typeRu,
+            points.Count,
+            Math.Round(turnover, 2)
+        );
+
+        return table;
+    }
+    // =========================
     // helper
     // =========================
     private DataTable ToDataTable<T>(IEnumerable<T> data)
